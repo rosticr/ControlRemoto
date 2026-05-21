@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "artifactType": {
+    "type": "PROCESSED_RES",
+    "kind": "Directory"
+  },
+  "applicationId": "com.controlremoto.client",
+  "variantName": "debug",
+  "elements": [
+    {
+      "type": "SINGLE",
+      "filters": [],
+      "attributes": [],
+      "versionCode": 41,
+      "versionName": "1.0.41",
+      "outputFile": "resources-debug.ap_"
+    }
+  ],
+  "elementType": "File"
+}

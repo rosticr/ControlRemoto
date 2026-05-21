@@ -4,37 +4,84 @@ import { Monitor, FolderUp } from 'lucide-react';
 import ConnectionPanel from './components/ConnectionPanel';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
+import Login from './components/Login';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [activeTab, setActiveTab] = useState<'screen' | 'files'>('screen');
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [onlineDevices, setOnlineDevices] = useState<string[]>([]);
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
-  const connectToSignalingServer = (roomIdToJoin: string) => {
-    // In a real app, this should be configurable
-    const newSocket = io('http://localhost:3000'); 
+  useEffect(() => {
+    if (isAuthenticated) {
+      const globalSocket = io('https://acceso.rosti.cr');
+      
+      globalSocket.on('connect', () => {
+        console.log("Conectado al servidor como Administrador");
+      });
+      
+      globalSocket.on('online-devices', (devices: string[]) => {
+        setOnlineDevices(devices);
+      });
+      
+      setSocket(globalSocket);
+      
+      return () => {
+        globalSocket.disconnect();
+      };
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isConnected && roomId && !onlineDevices.includes(roomId)) {
+      console.log('El dispositivo remoto se desconectó. Terminando sesión.');
+      disconnect();
+    }
+  }, [onlineDevices, isConnected, roomId]);
+
+  const connectToSignalingServer = async (roomIdToJoin: string) => {
+    if (!socket) return;
+    setIsConnecting(true);
     
-    newSocket.on('connect', () => {
-      newSocket.emit('join-room', roomIdToJoin);
-      setIsConnected(true);
-      setRoomId(roomIdToJoin);
-      setSocket(newSocket);
-      setupWebRTC(newSocket, roomIdToJoin);
-    });
+    // Limpiar listeners anteriores de llamadas
+    socket.off('answer');
+    socket.off('ice-candidate');
 
-    newSocket.on('offer', async (offer) => {
+    socket.emit('join-room', roomIdToJoin);
+    setIsConnected(true);
+    setIsConnecting(false);
+    setRoomId(roomIdToJoin);
+    
+    setupWebRTC(socket, roomIdToJoin);
+
+    // Windows inicia la transmisión de video pidiendo un Offer
+    try {
+      const offer = await peerConnectionRef.current?.createOffer();
+      if (offer) {
+        await peerConnectionRef.current?.setLocalDescription(offer);
+        socket.emit('offer', { roomId: roomIdToJoin, offer });
+      }
+    } catch (err) {
+      console.error("Error creating offer:", err);
+    }
+
+    socket.on('answer', async (answer) => {
       if (!peerConnectionRef.current) return;
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peerConnectionRef.current.createAnswer();
-      await peerConnectionRef.current.setLocalDescription(answer);
-      newSocket.emit('answer', { roomId: roomIdToJoin, answer });
+      try {
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (err) {
+        console.error("Error setting remote description from answer:", err);
+      }
     });
 
-    newSocket.on('ice-candidate', async (candidate) => {
+    socket.on('ice-candidate', async (candidate) => {
       if (!peerConnectionRef.current) return;
       try {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
@@ -42,15 +89,29 @@ function App() {
         console.error('Error adding received ice candidate', e);
       }
     });
-
-    newSocket.on('disconnect', () => {
-      setIsConnected(false);
-    });
   };
 
   const setupWebRTC = (socket: Socket, room: string) => {
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+    }
+    
+    const configuration = { 
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ] 
+    };
     const peerConnection = new RTCPeerConnection(configuration);
+    
+    // Explicitly tell the peer connection we want to receive video
+    try {
+      peerConnection.addTransceiver('video', { direction: 'recvonly' });
+    } catch (e) {
+      console.error('Error adding transceiver', e);
+    }
     
     peerConnection.addEventListener('icecandidate', event => {
       if (event.candidate) {
@@ -62,30 +123,52 @@ function App() {
       console.log('Received remote track', event.streams);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
+      } else {
+        console.warn('No streams found in track event, creating a new MediaStream');
+        const newStream = new MediaStream([event.track]);
+        setRemoteStream(newStream);
       }
     });
 
     // Create a data channel for mouse/keyboard controls
     const controlChannel = peerConnection.createDataChannel('control');
     controlChannel.onopen = () => console.log('Control channel opened');
+    dataChannelRef.current = controlChannel;
     
     peerConnectionRef.current = peerConnection;
   };
 
   const disconnect = () => {
-    if (socket) socket.disconnect();
-    if (peerConnectionRef.current) peerConnectionRef.current.close();
-    setSocket(null);
+    if (socket) {
+      socket.off('answer');
+      socket.off('ice-candidate');
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    dataChannelRef.current = null;
     setIsConnected(false);
     setRemoteStream(null);
   };
 
   const handleMouseEvent = (type: string, x: number, y: number) => {
-    if (peerConnectionRef.current) {
-      // Find the data channel and send the event
-      // This is a simplified version. In reality, we need to store the channel reference.
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      const message = JSON.stringify({ type, x, y });
+      dataChannelRef.current.send(message);
     }
   };
+
+  const handleKeyEvent = (key: string) => {
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      const message = JSON.stringify({ type: 'key', key });
+      dataChannelRef.current.send(message);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div className="app-container">
@@ -96,6 +179,8 @@ function App() {
 
         <ConnectionPanel 
           isConnected={isConnected} 
+          isConnecting={isConnecting}
+          onlineDevices={onlineDevices}
           onConnect={connectToSignalingServer} 
           onDisconnect={disconnect} 
         />
@@ -122,7 +207,7 @@ function App() {
 
       <div className="main-content">
         {activeTab === 'screen' ? (
-          <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} />
+          <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} onKeyEvent={handleKeyEvent} />
         ) : (
           <FileManager />
         )}

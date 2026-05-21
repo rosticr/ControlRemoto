@@ -1,0 +1,2 @@
+2026-05-18 10:05:46 - Starting C:\Program Files\nodejs\node.exe  --harmony C:\ControlRemoto\signaling-server\node_modules\node-windows\lib\wrapper.js --file C:\ControlRemoto\signaling-server\server.js --scriptoptions= --log "ControlRemotoServer wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2026-05-18 10:05:46 - Started 31980

@@ -3,9 +3,9 @@
   --bg-card: rgba(30, 41, 59, 0.7);
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --accent: #8b5cf6;
+  --primary: #FF5722;
+  --primary-hover: #E64A19;
+  --accent: #FFC107;
   --border: rgba(255, 255, 255, 0.1);
 }
 
@@ -14,8 +14,8 @@ body {
   padding: 0;
   background-color: var(--bg-dark);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(255, 87, 34, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255, 193, 7, 0.15) 0px, transparent 50%);
   color: var(--text-main);
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   height: 100vh;
@@ -97,7 +97,7 @@ input {
 
 input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.2);
 }
 
 button {
@@ -188,4 +188,72 @@ button:active {
 .tab.active {
   background: var(--primary);
   color: white;
+}
+
+/* Login Component */
+.login-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.login-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 0.875rem;
+  text-align: center;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.login-button {
+  margin-top: 8px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }

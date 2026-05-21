@@ -6,71 +6,108 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-
-// Servir la carpeta public para la consola web
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-// Almacenar el estado de los equipos conectados
-// Estructura: { socketId: { type: 'admin'|'android', roomId: string, connectedAt: date } }
 const connectedDevices = new Map();
 
+// Endpoint de diagnóstico HTTP
+app.get('/status', (req, res) => {
+  const devices = Array.from(connectedDevices.values());
+  res.json({
+    totalConectados: devices.length,
+    androidOnline: devices.filter(d => d.isAndroid).map(d => d.roomId),
+    todos: devices
+  });
+});
+
 io.on('connection', (socket) => {
-  console.log(`Nuevo cliente conectado: ${socket.id}`);
-  
-  // Por defecto se registra como cliente desconocido hasta que se una a una sala
-  connectedDevices.set(socket.id, { 
-    id: socket.id, 
-    status: 'conectado, sin sala', 
-    connectedAt: new Date().toISOString() 
+  const ts = () => new Date().toTimeString().split(' ')[0];
+  console.log(`[${ts()}] NUEVA CONEXIÓN: ${socket.id} desde ${socket.handshake.address}`);
+
+  connectedDevices.set(socket.id, {
+    id: socket.id,
+    status: 'conectado-sin-sala',
+    connectedAt: new Date().toISOString()
   });
   io.emit('devices-update', Array.from(connectedDevices.values()));
 
+  // Registro de dispositivo Android
+  socket.on('register-device', (deviceId) => {
+    console.log(`[${ts()}] REGISTER-DEVICE: socket=${socket.id} deviceId=${deviceId}`);
+    socket.join(deviceId);
+    connectedDevices.set(socket.id, {
+      id: socket.id,
+      roomId: deviceId,
+      status: 'android-online',
+      connectedAt: new Date().toISOString(),
+      isAndroid: true
+    });
+    const onlineIds = Array.from(connectedDevices.values())
+      .filter(d => d.isAndroid).map(d => d.roomId);
+    console.log(`[${ts()}] Dispositivos Android online: ${JSON.stringify(onlineIds)}`);
+    io.emit('online-devices', onlineIds);
+    io.emit('devices-update', Array.from(connectedDevices.values()));
+  });
+
+  // Admin uniéndose a sala
   socket.on('join-room', (roomId) => {
+    console.log(`[${ts()}] JOIN-ROOM: socket=${socket.id} sala=${roomId}`);
     socket.join(roomId);
-    console.log(`Cliente ${socket.id} se unió a la sala: ${roomId}`);
-    
-    // Actualizar estado
     connectedDevices.set(socket.id, {
       id: socket.id,
       roomId: roomId,
-      status: 'en sala',
-      connectedAt: new Date().toISOString()
+      status: 'admin-en-sala',
+      connectedAt: new Date().toISOString(),
+      isAndroid: false
     });
-    
-    // Emitir a todos (incluyendo la web consola)
     io.emit('devices-update', Array.from(connectedDevices.values()));
     socket.to(roomId).emit('user-connected', socket.id);
+    console.log(`[${ts()}] user-connected emitido a sala ${roomId}`);
   });
 
+  // WebRTC Signaling
   socket.on('offer', (data) => {
+    console.log(`[${ts()}] OFFER recibido: roomId=${data.roomId} desde=${socket.id}`);
+    const targets = Array.from(connectedDevices.values())
+      .filter(d => d.roomId === data.roomId && d.id !== socket.id);
+    console.log(`[${ts()}] Targets para offer: ${targets.map(t => t.id)}`);
     socket.to(data.roomId).emit('offer', data.offer);
   });
 
   socket.on('answer', (data) => {
+    console.log(`[${ts()}] ANSWER recibido: roomId=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('answer', data.answer);
   });
 
   socket.on('ice-candidate', (data) => {
+    console.log(`[${ts()}] ICE-CANDIDATE: roomId=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('ice-candidate', data.candidate);
   });
 
-  socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
+  socket.on('disconnect', (reason) => {
+    const device = connectedDevices.get(socket.id);
+    console.log(`[${ts()}] DESCONEXIÓN: ${socket.id} roomId=${device?.roomId} razón=${reason}`);
     connectedDevices.delete(socket.id);
+    const onlineIds = Array.from(connectedDevices.values())
+      .filter(d => d.isAndroid).map(d => d.roomId);
+    io.emit('online-devices', onlineIds);
     io.emit('devices-update', Array.from(connectedDevices.values()));
+  });
+
+  socket.on('error', (err) => {
+    console.error(`[${ts()}] ERROR socket ${socket.id}:`, err);
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor de señalización escuchando en el puerto ${PORT}`);
-  console.log(`Consola web de administración disponible en http://localhost:${PORT}`);
+  console.log(`========================================`);
+  console.log(`Servidor de señalización escuchando en puerto ${PORT}`);
+  console.log(`Diagnóstico: http://localhost:${PORT}/status`);
+  console.log(`========================================`);
 });

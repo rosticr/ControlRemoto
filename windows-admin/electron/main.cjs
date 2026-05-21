@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -9,17 +9,24 @@ function createWindow() {
     height: 720,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
-      nodeIntegration: true, // Permitir Node.js en el renderer para socket.io/webrtc si se necesita
-      contextIsolation: false
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: false
     }
   });
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Browser Console] ${message} (at ${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    dialog.showErrorBox('Error Crítico', `El proceso gráfico ha fallado: ${details.reason}. Por favor reinicie la aplicación.`);
+  });
 }
 
 app.whenReady().then(() => {

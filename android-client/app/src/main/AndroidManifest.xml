@@ -12,9 +12,10 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        android:icon="@drawable/ic_rosti_logo"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/ic_rosti_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
         
@@ -29,8 +30,14 @@
 
         <service
             android:name=".RemoteControlService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false">
+        </service>
+
+        <service
+            android:name=".RemoteControlAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>

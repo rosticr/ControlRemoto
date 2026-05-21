@@ -1,0 +1,16 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_rosti_logo
+id btnAccessibility
+id btnConnect
+id btnLogin
+id btnSettings
+id etPass
+id etUser
+id layoutDashboard
+id layoutLogin
+id tvRoomCode
+id tvStatus
+layout activity_main
+string app_name
+xml accessibility_service_config

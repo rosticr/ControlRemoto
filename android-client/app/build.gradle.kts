@@ -3,6 +3,26 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+val versionPropsFile = file("version.properties")
+if (!versionPropsFile.exists()) {
+    versionPropsFile.writeText("VERSION_CODE=0\n")
+}
+val versionProps = Properties().apply { load(FileInputStream(versionPropsFile)) }
+var currentVersionCode = versionProps.getProperty("VERSION_CODE", "0").toInt()
+
+if (gradle.startParameter.taskNames.any { it.contains("assemble") || it.contains("build") }) {
+    currentVersionCode++
+    versionProps.setProperty("VERSION_CODE", currentVersionCode.toString())
+    versionProps.store(versionPropsFile.writer(), null)
+}
+
+base {
+    archivesName.set("rostiremoteapk-v1.0.$currentVersionCode")
+}
+
 android {
     namespace = "com.controlremoto.client"
     compileSdk = 34
@@ -11,8 +31,8 @@ android {
         applicationId = "com.controlremoto.client"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = currentVersionCode
+        versionName = "1.0.$currentVersionCode"
     }
 
     buildTypes {
@@ -31,12 +51,12 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     
     // WebRTC and Socket.io
     implementation("io.socket:socket.io-client:2.1.0")
-    implementation("org.webrtc:google-webrtc:1.0.32006")
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
 }

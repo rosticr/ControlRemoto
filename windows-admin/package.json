@@ -13,6 +13,13 @@
     "electron:dev": "concurrently -k \"npm run dev\" \"wait-on tcp:5173 && npm run electron:start\"",
     "electron:build": "npm run build && electron-builder"
   },
+  "build": {
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
+  },
   "dependencies": {
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",

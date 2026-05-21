@@ -1,0 +1,4 @@
+com.controlremoto.client.test.app-androidTest-0 C:\ControlRemoto\android-client\app\build\generated\res\resValues\androidTest\debug
+com.controlremoto.client.test.app-mergeDebugAndroidTestResources-1 C:\ControlRemoto\android-client\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.controlremoto.client.test.app-mergeDebugAndroidTestResources-2 C:\ControlRemoto\android-client\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.controlremoto.client.test.app-debugAndroidTest-3 C:\ControlRemoto\android-client\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources
