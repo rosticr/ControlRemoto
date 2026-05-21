@@ -25,9 +25,9 @@ class WebRTCClient(
         )
 
         val options = PeerConnectionFactory.Options()
-        // Usamos codificador por software para compatibilidad universal (evita pantalla negra)
-        val encoderFactory = SoftwareVideoEncoderFactory()
-        val decoderFactory = SoftwareVideoDecoderFactory()
+        // Usamos hardware encoding que es mucho más rápido y estable para grabar pantalla
+        val encoderFactory = DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, true)
+        val decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
         
         factory = PeerConnectionFactory.builder()
             .setOptions(options)
@@ -118,10 +118,27 @@ class WebRTCClient(
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
         val metrics = android.util.DisplayMetrics()
         windowManager.defaultDisplay.getRealMetrics(metrics)
-        val width = metrics.widthPixels
-        val height = metrics.heightPixels
+        var width = metrics.widthPixels
+        var height = metrics.heightPixels
         
-        // Resolución dinámica real de la pantalla
+        // Limitar resolución para evitar que el encoder falle por tamaño excesivo
+        val MAX_RES = 1280
+        if (Math.max(width, height) > MAX_RES) {
+            val ratio = width.toFloat() / height.toFloat()
+            if (width > height) {
+                width = MAX_RES
+                height = (MAX_RES / ratio).toInt()
+            } else {
+                height = MAX_RES
+                width = (MAX_RES * ratio).toInt()
+            }
+        }
+
+        // Asegurar que sean números pares (los encoders de video suelen requerirlo)
+        width = (width / 2) * 2
+        height = (height / 2) * 2
+        
+        // Resolución dinámica y segura
         videoCapturer.startCapture(width, height, 30) 
 
         val videoTrack = factory?.createVideoTrack("100", videoSource)

@@ -31,7 +31,7 @@ io.on('connection', (socket) => {
 
   connectedDevices.set(socket.id, {
     id: socket.id,
-    status: 'conectado-sin-sala',
+    status: 'Admin Windows (Menú Principal)',
     connectedAt: new Date().toISOString()
   });
   io.emit('devices-update', Array.from(connectedDevices.values()));
@@ -39,6 +39,17 @@ io.on('connection', (socket) => {
   // Registro de dispositivo Android
   socket.on('register-device', (deviceId) => {
     console.log(`[${ts()}] REGISTER-DEVICE: socket=${socket.id} deviceId=${deviceId}`);
+    
+    // Limpiar conexiones fantasma del mismo equipo
+    for (const [existingSocketId, device] of connectedDevices.entries()) {
+      if (device.isAndroid && device.roomId === deviceId && existingSocketId !== socket.id) {
+        console.log(`[${ts()}] Eliminando conexión fantasma de Android: ${existingSocketId}`);
+        const oldSocket = io.sockets.sockets.get(existingSocketId);
+        if (oldSocket) oldSocket.disconnect(true);
+        connectedDevices.delete(existingSocketId);
+      }
+    }
+    
     socket.join(deviceId);
     connectedDevices.set(socket.id, {
       id: socket.id,
@@ -61,7 +72,7 @@ io.on('connection', (socket) => {
     connectedDevices.set(socket.id, {
       id: socket.id,
       roomId: roomId,
-      status: 'admin-en-sala',
+      status: 'Admin Windows (Viendo Pantalla)',
       connectedAt: new Date().toISOString(),
       isAndroid: false
     });

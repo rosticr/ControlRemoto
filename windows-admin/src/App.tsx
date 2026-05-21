@@ -21,7 +21,7 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const globalSocket = io('https://acceso.rosti.cr');
+      const globalSocket = io('https://rosti-server.onrender.com');
       
       globalSocket.on('connect', () => {
         console.log("Conectado al servidor como Administrador");
@@ -29,6 +29,11 @@ function App() {
       
       globalSocket.on('online-devices', (devices: string[]) => {
         setOnlineDevices(devices);
+      });
+      
+      globalSocket.on('devices-update', (devices: any[]) => {
+        const androidIds = devices.filter((d: any) => d.isAndroid).map((d: any) => d.roomId);
+        setOnlineDevices(androidIds);
       });
       
       setSocket(globalSocket);
@@ -47,7 +52,11 @@ function App() {
   }, [onlineDevices, isConnected, roomId]);
 
   const connectToSignalingServer = async (roomIdToJoin: string) => {
-    if (!socket) return;
+    console.log("CLICK en conectar. Socket es:", socket ? "Existe" : "NULL");
+    if (!socket) {
+      console.log("ERROR: socket es null");
+      return;
+    }
     setIsConnecting(true);
     
     // Limpiar listeners anteriores de llamadas
