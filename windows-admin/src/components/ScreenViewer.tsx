@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { MonitorPlay } from 'lucide-react';
+import { MonitorPlay, Maximize2, Minimize2 } from 'lucide-react';
 
 interface Props {
   stream: MediaStream | null;
   onMouseEvent: (type: string, x: number, y: number) => void;
   onKeyEvent?: (key: string) => void;
+  platform?: 'android' | 'windows';
 }
 
-export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent }: Props) {
+export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platform = 'android' }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -78,22 +80,34 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent }: Props
   }, [onKeyEvent]);
 
   return (
-    <div className="screen-viewer" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
+    <div 
+      className={`screen-viewer ${platform === 'windows' ? 'platform-windows' : 'platform-android'} ${isFullscreen ? 'fullscreen' : ''}`}
+      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%', position: 'relative' }}
+    >
       {stream ? (
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'contain',
-            touchAction: 'none'
-          }}
-          onPointerDown={(e) => handlePointerEvent(e, 'down')}
-          onPointerUp={(e) => handlePointerEvent(e, 'up')}
-          onPointerMove={(e) => handlePointerEvent(e, 'move')}
-        />
+        <>
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'contain',
+              touchAction: 'none'
+            }}
+            onPointerDown={(e) => handlePointerEvent(e, 'down')}
+            onPointerUp={(e) => handlePointerEvent(e, 'up')}
+            onPointerMove={(e) => handlePointerEvent(e, 'move')}
+          />
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="fullscreen-toggle-btn"
+            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+          </button>
+        </>
       ) : (
         <div className="placeholder">
           <MonitorPlay />

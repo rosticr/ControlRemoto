@@ -102,7 +102,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         if (parentPath !== targetPath) {
           filesList.push({
             name: '..',
-            path: parentPath,
             type: 'folder',
             size: '',
             date: ''
@@ -130,7 +129,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
             filesList.push({
               name: item,
-              path: itemPath,
               type: itemStats.isDirectory() ? 'folder' : 'file',
               size: sizeStr,
               date: dateStr

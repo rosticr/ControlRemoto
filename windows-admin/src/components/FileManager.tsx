@@ -33,6 +33,19 @@ export default function FileManager({ fileChannel }: Props) {
   const downloadBufferRef = useRef<ArrayBuffer[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getFullPath = (fileName: string) => {
+    if (fileName === '..') {
+      const parts = currentPath.split('/');
+      if (parts.length <= 1) return currentPath;
+      if (parts.length === 2 && parts[1] === '') return parts[0] + '/';
+      const parent = parts.slice(0, -1).join('/');
+      return parent || '/';
+    }
+    if (!currentPath) return fileName;
+    const separator = currentPath.endsWith('/') || currentPath.endsWith('\\') ? '' : '/';
+    return currentPath + separator + fileName;
+  };
+
   useEffect(() => {
     if (!fileChannel) return;
 
@@ -254,7 +267,7 @@ export default function FileManager({ fileChannel }: Props) {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 onClick={() => {
-                  if (f.type === 'folder') requestDir(f.path);
+                  if (f.type === 'folder') requestDir(f.path || getFullPath(f.name));
                 }}
               >
                 <td style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.name}>
@@ -272,7 +285,7 @@ export default function FileManager({ fileChannel }: Props) {
                       style={{ padding: '8px' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDownload(f.path);
+                        handleDownload(f.path || getFullPath(f.name));
                       }}
                       disabled={isDownloading || isUploading}
                       title="Descargar"

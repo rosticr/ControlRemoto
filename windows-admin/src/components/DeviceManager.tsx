@@ -480,70 +480,194 @@ export default function DeviceManager({
     const isThisConnected = isConnected && connectedRoomId === selectedDevice.id;
 
     if (isThisConnected && activeTool) {
+      const isWindows = selectedDevice.platform === 'windows';
       return (
-        <div className="details-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'row', gap: '24px', height: '100%', boxSizing: 'border-box' }}>
+        <div className="details-panel" style={{ padding: isWindows ? '16px' : '24px', display: 'flex', flexDirection: 'row', gap: '24px', height: '100%', boxSizing: 'border-box' }}>
           {/* Main Area (Screen / Files) */}
           <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)' }}>
+            {/* Top Bar for Windows */}
+            {isWindows && (
+              <div className="windows-top-bar" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 20px',
+                background: 'var(--bg-panel)',
+                borderBottom: '1px solid var(--border)',
+                gap: '24px',
+                flexShrink: 0
+              }}>
+                {/* Left: Device Info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Monitor size={20} style={{ color: '#38bdf8' }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                      {selectedDevice.name}
+                      <span style={{ fontSize: '0.7rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)', padding: '2px 8px', borderRadius: '12px', fontWeight: 500 }}>
+                        En Línea
+                      </span>
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</p>
+                  </div>
+                </div>
+
+                {/* Center: Tool Selector (Tabs) */}
+                <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px' }}>
+                  <button 
+                    onClick={() => setActiveTool('screen')}
+                    style={{
+                      background: activeTool === 'screen' ? 'var(--primary)' : 'transparent',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '6px 16px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <Monitor size={14} /> Pantalla
+                  </button>
+                  <button 
+                    onClick={() => setActiveTool('files')}
+                    style={{
+                      background: activeTool === 'files' ? 'var(--primary)' : 'transparent',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '6px 16px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <FolderUp size={14} /> Archivos
+                  </button>
+                </div>
+
+                {/* Right: Group dropdown & Disconnect */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Grupo:</span>
+                    <select
+                      value={selectedDevice.group || ''}
+                      onChange={(e) => updateDeviceGroup(selectedDevice.id, e.target.value)}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-main)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        height: '28px'
+                      }}
+                    >
+                      <option value="">Sin Grupo</option>
+                      {savedGroups.map(g => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button 
+                    onClick={() => { setActiveTool(null); onDisconnect(); }} 
+                    style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      height: '28px'
+                    }}
+                  >
+                    <WifiOff size={14} /> Desconectar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {activeTool === 'screen' && (
-              <ScreenViewer stream={remoteStream} onMouseEvent={onMouseEvent} onKeyEvent={onKeyEvent} />
+              <ScreenViewer 
+                stream={remoteStream} 
+                onMouseEvent={onMouseEvent} 
+                onKeyEvent={onKeyEvent} 
+                platform={selectedDevice.platform}
+              />
             )}
             {activeTool === 'files' && (
               <FileManager fileChannel={fileChannel} />
             )}
           </div>
 
-          {/* Right Sidebar (Controls) */}
-          <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem' }}>{selectedDevice.name}</h3>
-              <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Grupo:</span>
-                <select
-                  value={selectedDevice.group || ''}
-                  onChange={(e) => updateDeviceGroup(selectedDevice.id, e.target.value)}
-                  style={{
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-main)',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    flex: 1
-                  }}
-                >
-                  <option value="">Sin Grupo</option>
-                  {savedGroups.map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
+          {/* Right Sidebar (Controls) - Rendered only for Android/non-Windows */}
+          {!isWindows && (
+            <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem' }}>{selectedDevice.name}</h3>
+                <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Grupo:</span>
+                  <select
+                    value={selectedDevice.group || ''}
+                    onChange={(e) => updateDeviceGroup(selectedDevice.id, e.target.value)}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.2)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-main)',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}
+                  >
+                    <option value="">Sin Grupo</option>
+                    {savedGroups.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="status-badge" style={{ marginTop: 0 }}>Conexión Activa</div>
               </div>
-              <div className="status-badge" style={{ marginTop: 0 }}>Conexión Activa</div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button 
+                  className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => setActiveTool('screen')}
+                  style={{ justifyContent: 'flex-start', padding: '16px' }}
+                >
+                  <Monitor size={20} /> Ver Pantalla
+                </button>
+                <button 
+                  className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => setActiveTool('files')}
+                  style={{ justifyContent: 'flex-start', padding: '16px' }}
+                >
+                  <FolderUp size={20} /> Archivos
+                </button>
+                <div style={{ flex: 1 }}></div>
+                <button onClick={() => { setActiveTool(null); onDisconnect(); }} style={{ background: '#ef4444', justifyContent: 'flex-start', padding: '16px' }}>
+                  <WifiOff size={20} /> Desconectar
+                </button>
+              </div>
             </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button 
-                className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => setActiveTool('screen')}
-                style={{ justifyContent: 'flex-start', padding: '16px' }}
-              >
-                <Monitor size={20} /> Ver Pantalla
-              </button>
-              <button 
-                className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => setActiveTool('files')}
-                style={{ justifyContent: 'flex-start', padding: '16px' }}
-              >
-                <FolderUp size={20} /> Archivos
-              </button>
-              <div style={{ flex: 1 }}></div>
-              <button onClick={() => { setActiveTool(null); onDisconnect(); }} style={{ background: '#ef4444', justifyContent: 'flex-start', padding: '16px' }}>
-                <WifiOff size={20} /> Desconectar
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       );
     }

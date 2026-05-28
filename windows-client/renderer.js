@@ -352,8 +352,15 @@ window.addEventListener('socket-offer', async (e) => {
               const cmdData = JSON.parse(msgEvent.data);
               
               if (cmdData.cmd === 'LIST_DIR') {
+                console.log('[Client] Recibido LIST_DIR para ruta:', cmdData.path);
                 const result = window.electronAPI.fs.listDir(cmdData.path);
-                channel.send(JSON.stringify({ type: 'DIR_LIST', data: result }));
+                console.log('[Client] Resultado listDir:', result.error ? 'Error: ' + result.error : (result.files ? result.files.length + ' archivos' : 'sin archivos'));
+                try {
+                  channel.send(JSON.stringify({ type: 'DIR_LIST', data: result }));
+                  console.log('[Client] Enviada respuesta DIR_LIST.');
+                } catch (sendErr) {
+                  console.error('[Client] Error al enviar DIR_LIST por RTCDataChannel:', sendErr);
+                }
               } 
               else if (cmdData.cmd === 'REQ_DOWNLOAD') {
                 const targetFile = cmdData.path;

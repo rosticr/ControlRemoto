@@ -113,6 +113,10 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Client Console] ${message} (at ${sourceId}:${line})`);
+  });
+
   // Do not exit app when window is closed, just hide it
   mainWindow.on('close', (event) => {
     if (!app.isQuiting) {

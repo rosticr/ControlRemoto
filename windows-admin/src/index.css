@@ -406,6 +406,71 @@ button:disabled {
   box-shadow: 0 20px 50px rgba(0,0,0,0.6);
   background: #000;
   border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s ease;
+}
+
+/* Modificaciones para equipos Windows */
+.screen-viewer.platform-windows {
+  padding: 16px;
+}
+
+.screen-viewer.platform-windows video {
+  max-width: none;
+  max-height: none;
+  border-radius: 8px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+}
+
+/* Modo pantalla completa */
+.screen-viewer.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  padding: 0 !important;
+  margin: 0;
+  background: #000;
+  border: none;
+  border-radius: 0;
+}
+
+.screen-viewer.fullscreen video {
+  max-width: none !important;
+  max-height: none !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Botón flotante para alternar pantalla completa */
+.fullscreen-toggle-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(13, 19, 35, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-main);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.fullscreen-toggle-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  transform: scale(1.08);
 }
 
 /* Login Component */
