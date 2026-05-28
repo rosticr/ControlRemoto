@@ -80,7 +80,7 @@ export default function FileManager({ fileChannel }: Props) {
             setIsUploading(false);
             setUploadProgress(0);
             requestDir(currentPathRef.current); // Recargar
-            setSuccessMessage('Archivo subido con éxito al teléfono');
+            setSuccessMessage('Archivo subido con éxito al dispositivo');
             setTimeout(() => setSuccessMessage(null), 4000);
           }
         } catch (e) {

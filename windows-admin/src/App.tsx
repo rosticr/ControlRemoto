@@ -268,6 +268,8 @@ function App() {
           onConnectScreen={(id) => connectToSignalingServer(id, 'screen')}
           onConnectFiles={(id) => connectToSignalingServer(id, 'files')}
           onDisconnect={disconnect}
+          serverUrl={currentServerUrl}
+          token={currentUser.token}
         />
       )}
  

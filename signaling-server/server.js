@@ -33,6 +33,27 @@ function saveApkHistory(history) {
   fs.writeFileSync(APK_HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
+// Gestión de Grupos
+const GROUPS_FILE = path.join(__dirname, 'groups.json');
+
+function loadGroups() {
+  if (!fs.existsSync(GROUPS_FILE)) {
+    // Por defecto, iniciamos con un grupo vacío o por defecto
+    const defaultGroups = ['Sin Grupo'];
+    fs.writeFileSync(GROUPS_FILE, JSON.stringify(defaultGroups, null, 2));
+    return defaultGroups;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(GROUPS_FILE, 'utf8'));
+  } catch (e) {
+    return ['Sin Grupo'];
+  }
+}
+
+function saveGroups(groups) {
+  fs.writeFileSync(GROUPS_FILE, JSON.stringify(groups, null, 2));
+}
+
 // Gestión de Usuarios
 const USERS_FILE = path.join(__dirname, 'users.json');
 
@@ -271,6 +292,24 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
 // Endpoint para obtener historial de versiones (todos los usuarios logueados)
 app.get('/api/apk-history', authenticateToken, (req, res) => {
   res.json(loadApkHistory());
+});
+
+// Endpoint para obtener la lista de grupos (público para clientes y admins)
+app.get('/api/groups', (req, res) => {
+  res.json(loadGroups());
+});
+
+// Endpoint para guardar la lista de grupos (solo Administradores)
+app.post('/api/groups', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Solo los administradores pueden gestionar grupos.' });
+  }
+  const { groups } = req.body;
+  if (!Array.isArray(groups)) {
+    return res.status(400).json({ error: 'La lista de grupos debe ser un arreglo de cadenas.' });
+  }
+  saveGroups(groups);
+  res.json({ success: true, groups });
 });
 
 // Endpoint para eliminar versión (solo Administradores)

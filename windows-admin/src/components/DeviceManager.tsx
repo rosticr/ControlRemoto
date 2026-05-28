@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -16,12 +16,15 @@ interface Props {
   onConnectScreen: (roomId: string) => void;
   onConnectFiles: (roomId: string) => void;
   onDisconnect: () => void;
+  serverUrl?: string;
+  token?: string;
 }
 
 interface SavedDevice {
   id: string;
   name: string;
   group?: string;
+  platform?: 'android' | 'windows';
 }
 
 export default function DeviceManager({ 
@@ -35,7 +38,9 @@ export default function DeviceManager({
   onKeyEvent,
   onConnectScreen, 
   onConnectFiles, 
-  onDisconnect 
+  onDisconnect,
+  serverUrl = '',
+  token = ''
 }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
@@ -47,8 +52,25 @@ export default function DeviceManager({
   const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
   const [newGroup, setNewGroup] = useState('');
+  const [newPlatform, setNewPlatform] = useState<'android' | 'windows'>('android');
   const [newGroupName, setNewGroupName] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const syncGroupsWithServer = async (groupsList: string[]) => {
+    if (!serverUrl || !token) return;
+    try {
+      await fetch(`${serverUrl}/api/groups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ groups: groupsList })
+      });
+    } catch (e) {
+      console.error("Error syncing groups with server:", e);
+    }
+  };
 
   useEffect(() => {
     const savedDevs = localStorage.getItem('rosti_saved_devices');
@@ -77,7 +99,20 @@ export default function DeviceManager({
         localStorage.setItem('rosti_saved_groups', JSON.stringify(existingGroups));
       }
     }
-  }, []);
+
+    // Sync from server on mount
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/groups`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setSavedGroups(data);
+            localStorage.setItem('rosti_saved_groups', JSON.stringify(data));
+          }
+        })
+        .catch(err => console.error("Error fetching groups from server on mount:", err));
+    }
+  }, [serverUrl]);
 
   const saveDevice = () => {
     if (!newId.trim() || !newName.trim()) return;
@@ -88,14 +123,16 @@ export default function DeviceManager({
       const updatedGroups = [...savedGroups, groupVal];
       setSavedGroups(updatedGroups);
       localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+      syncGroupsWithServer(updatedGroups);
     }
 
-    const newList = [...savedDevices, { id: newId.trim(), name: newName.trim(), group: groupVal }];
+    const newList = [...savedDevices, { id: newId.trim(), name: newName.trim(), group: groupVal, platform: newPlatform }];
     setSavedDevices(newList);
     localStorage.setItem('rosti_saved_devices', JSON.stringify(newList));
     setNewId('');
     setNewName('');
     setNewGroup('');
+    setNewPlatform('android');
     setActiveTab('list');
   };
 
@@ -109,6 +146,7 @@ export default function DeviceManager({
     const updatedGroups = [...savedGroups, trimmed];
     setSavedGroups(updatedGroups);
     localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+    syncGroupsWithServer(updatedGroups);
     setNewGroupName('');
     setActiveTab('list');
   };
@@ -117,6 +155,7 @@ export default function DeviceManager({
     const updatedGroups = savedGroups.filter(g => g !== groupName);
     setSavedGroups(updatedGroups);
     localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+    syncGroupsWithServer(updatedGroups);
 
     // Update devices belonging to this group
     const updatedDevices = savedDevices.map(d => {
@@ -244,6 +283,26 @@ export default function DeviceManager({
                 value={newId}
                 onChange={(e) => setNewId(e.target.value)}
               />
+              
+              <label style={{ marginTop: '8px' }}>Plataforma</label>
+              <select
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value as 'android' | 'windows')}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-main)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="android">Android</option>
+                <option value="windows">Windows</option>
+              </select>
+
               <button 
                 style={{ marginTop: '16px' }} 
                 onClick={saveDevice}
@@ -347,7 +406,13 @@ export default function DeviceManager({
                                 }}
                               >
                                 <div className="device-icon">
-                                  <MonitorSmartphone size={18} />
+                                  {device.platform === 'windows' ? (
+                                    <Monitor size={18} style={{ color: '#38bdf8' }} />
+                                  ) : device.platform === 'android' ? (
+                                    <Smartphone size={18} style={{ color: '#a78bfa' }} />
+                                  ) : (
+                                    <MonitorSmartphone size={18} />
+                                  )}
                                   <div style={{
                                     position: 'absolute', bottom: '6px', right: '6px',
                                     width: '8px', height: '8px', borderRadius: '50%',
@@ -466,7 +531,13 @@ export default function DeviceManager({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div className="device-header-large">
               <div className="icon-wrapper">
-                <MonitorSmartphone size={40} />
+                {selectedDevice.platform === 'windows' ? (
+                  <Monitor size={40} style={{ color: '#38bdf8' }} />
+                ) : selectedDevice.platform === 'android' ? (
+                  <Smartphone size={40} style={{ color: '#a78bfa' }} />
+                ) : (
+                  <MonitorSmartphone size={40} />
+                )}
               </div>
               <div>
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>{selectedDevice.name}</h2>

@@ -8,7 +8,7 @@ interface LoginProps {
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [serverUrl, setServerUrl] = useState('http://127.0.0.1:3000');
+  const [serverUrl, setServerUrl] = useState('https://acceso.rosti.cr');
   const [error, setError] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
