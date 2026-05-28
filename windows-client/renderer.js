@@ -328,6 +328,11 @@ window.addEventListener('socket-offer', async (e) => {
               window.electronAPI.sendInputCmd('down');
             } else if (data.type === 'up') {
               window.electronAPI.sendInputCmd('up');
+            } else if (data.type === 'rightdown') {
+              window.electronAPI.sendInputCmd(`move ${data.x} ${data.y}`);
+              window.electronAPI.sendInputCmd('rightdown');
+            } else if (data.type === 'rightup') {
+              window.electronAPI.sendInputCmd('rightup');
             } else if (data.type === 'key') {
               window.electronAPI.sendInputCmd(`key ${data.key}`);
             }

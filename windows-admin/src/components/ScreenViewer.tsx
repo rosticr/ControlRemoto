@@ -55,7 +55,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     
     // Asegurarse de que el clic ocurrió DENTRO del área del video, no en las barras negras
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
-      onMouseEvent(type, x, y);
+      let eventType = type;
+      if (e.button === 2) {
+        if (type === 'down') eventType = 'rightdown';
+        else if (type === 'up') eventType = 'rightup';
+      }
+      onMouseEvent(eventType, x, y);
     }
   };
 
@@ -99,6 +104,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onPointerDown={(e) => handlePointerEvent(e, 'down')}
             onPointerUp={(e) => handlePointerEvent(e, 'up')}
             onPointerMove={(e) => handlePointerEvent(e, 'move')}
+            onContextMenu={(e) => e.preventDefault()}
           />
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
