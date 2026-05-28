@@ -628,8 +628,8 @@
                     <tr>
                         <td><span style="font-family: monospace;">${d.id}</span></td>
                         <td>
-                            <span class="status-dot" style="background-color: ${d.isAndroid ? 'var(--success)' : 'var(--primary)'}; box-shadow: 0 0 8px ${d.isAndroid ? 'var(--success)' : 'var(--primary)'}"></span>
-                            ${d.isAndroid ? 'Cliente Android' : d.status}
+                            <span class="status-dot" style="background-color: ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}; box-shadow: 0 0 8px ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}"></span>
+                            ${d.isAndroid ? 'Cliente Android' : (d.isWindows ? 'Cliente Windows' : d.status)}
                         </td>
                         <td><strong>${d.roomId || '-'}</strong></td>
                         <td>${d.connectedAt ? new Date(d.connectedAt).toLocaleTimeString() : '-'}</td>

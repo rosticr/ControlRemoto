@@ -424,6 +424,7 @@ app.get('/status', (req, res) => {
   res.json({
     totalConectados: devices.length,
     androidOnline: devices.filter(d => d.isAndroid).map(d => d.roomId),
+    windowsOnline: devices.filter(d => d.isWindows).map(d => d.roomId),
     todos: devices
   });
 });
@@ -458,7 +459,7 @@ io.on('connection', (socket) => {
       
       // Enviar lista inicial de equipos online
       const onlineIds = Array.from(connectedDevices.values())
-        .filter(d => d.isAndroid).map(d => d.roomId);
+        .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);
       socket.emit('online-devices', onlineIds);
       console.log(`[${ts()}] Socket ${socket.id} autenticado como ${session.username}`);
     } else {
@@ -466,14 +467,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Registro de dispositivo Android
+  // Registro de dispositivo (Android o Windows)
   socket.on('register-device', (deviceId) => {
     console.log(`[${ts()}] REGISTER-DEVICE: socket=${socket.id} deviceId=${deviceId}`);
+    const isWin = deviceId.startsWith('win-');
+    const isAndroid = !isWin;
     
     // Limpiar conexiones fantasma del mismo equipo
     for (const [existingSocketId, device] of connectedDevices.entries()) {
-      if (device.isAndroid && device.roomId === deviceId && existingSocketId !== socket.id) {
-        console.log(`[${ts()}] Eliminando conexión fantasma de Android: ${existingSocketId}`);
+      if ((device.isAndroid || device.isWindows) && device.roomId === deviceId && existingSocketId !== socket.id) {
+        console.log(`[${ts()}] Eliminando conexión fantasma de ${device.isAndroid ? 'Android' : 'Windows'}: ${existingSocketId}`);
         const oldSocket = io.sockets.sockets.get(existingSocketId);
         if (oldSocket) oldSocket.disconnect(true);
         connectedDevices.delete(existingSocketId);
@@ -484,13 +487,14 @@ io.on('connection', (socket) => {
     connectedDevices.set(socket.id, {
       id: socket.id,
       roomId: deviceId,
-      status: 'android-online',
+      status: isWin ? 'windows-online' : 'android-online',
       connectedAt: new Date().toISOString(),
-      isAndroid: true
+      isAndroid: isAndroid,
+      isWindows: isWin
     });
     const onlineIds = Array.from(connectedDevices.values())
-      .filter(d => d.isAndroid).map(d => d.roomId);
-    console.log(`[${ts()}] Dispositivos Android online: ${JSON.stringify(onlineIds)}`);
+      .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);
+    console.log(`[${ts()}] Dispositivos online: ${JSON.stringify(onlineIds)}`);
     io.to('dashboard-room').emit('online-devices', onlineIds);
     io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
   });
@@ -535,7 +539,7 @@ io.on('connection', (socket) => {
     console.log(`[${ts()}] DESCONEXIÓN: ${socket.id} roomId=${device?.roomId} razón=${reason}`);
     connectedDevices.delete(socket.id);
     const onlineIds = Array.from(connectedDevices.values())
-      .filter(d => d.isAndroid).map(d => d.roomId);
+      .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);
     io.to('dashboard-room').emit('online-devices', onlineIds);
     io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
   });

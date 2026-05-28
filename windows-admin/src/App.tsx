@@ -43,8 +43,8 @@ function App() {
       });
       
       globalSocket.on('devices-update', (devices: any[]) => {
-        const androidIds = devices.filter((d: any) => d.isAndroid).map((d: any) => d.roomId);
-        setOnlineDevices(androidIds);
+        const clientIds = devices.filter((d: any) => d.isAndroid || d.isWindows).map((d: any) => d.roomId);
+        setOnlineDevices(clientIds);
       });
       
       setSocket(globalSocket);
