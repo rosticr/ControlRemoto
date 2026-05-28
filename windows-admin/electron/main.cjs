@@ -1,12 +1,18 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 
+// Set Application User Model ID for Windows taskbar icon association
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.rosti.windowsadmin');
+}
+
 const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
+    icon: path.join(__dirname, process.platform === 'win32' ? '../icon.ico' : '../icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: true,

@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Set Application User Model ID for Windows taskbar notifications and icon association
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.rosti.windowsclient');
+}
+
 let mainWindow;
 let tray;
 let inputSimulator;
@@ -106,6 +111,7 @@ function createWindow() {
     transparent: true,
     skipTaskbar: false,
     show: false, // will show manually if not launched --hidden
+    icon: path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -131,8 +137,8 @@ function createWindow() {
 }
 
 function createTray() {
-  // Create a simple tray icon. We will generate a colored flame icon programmatically if file doesn't exist
-  let trayIconPath = path.join(__dirname, 'tray_icon.png');
+  // Create a tray icon
+  let trayIconPath = path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
   
   // For development fallback, use a built-in Electron icon or programmatic nativeImage
   let trayImage;
