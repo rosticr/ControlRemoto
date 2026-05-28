@@ -286,7 +286,6 @@ function App() {
               <FolderUp size={18} style={{ marginBottom: '4px' }} />
               <div>Archivos</div>
             </div>
-            </div>
           </div>
         )}
 
