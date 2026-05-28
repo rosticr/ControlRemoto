@@ -249,6 +249,52 @@ export default function DeviceManager({
     const isOnline = onlineDevices.includes(selectedDevice.id);
     const isThisConnected = isConnected && connectedRoomId === selectedDevice.id;
 
+    if (isThisConnected && activeTool) {
+      return (
+        <div className="details-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'row', gap: '24px', height: '100%', boxSizing: 'border-box' }}>
+          {/* Main Area (Screen / Files) */}
+          <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)' }}>
+            {activeTool === 'screen' && (
+              <ScreenViewer stream={remoteStream} onMouseEvent={onMouseEvent} onKeyEvent={onKeyEvent} />
+            )}
+            {activeTool === 'files' && (
+              <FileManager fileChannel={fileChannel} />
+            )}
+          </div>
+
+          {/* Right Sidebar (Controls) */}
+          <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem' }}>{selectedDevice.name}</h3>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</p>
+              <div className="status-badge" style={{ marginTop: 0 }}>Conexión Activa</div>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button 
+                className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => { setActiveTool('screen'); onConnectScreen(selectedDevice.id); }}
+                style={{ justifyContent: 'flex-start', padding: '16px' }}
+              >
+                <Monitor size={20} /> Ver Pantalla
+              </button>
+              <button 
+                className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => { setActiveTool('files'); onConnectFiles(selectedDevice.id); }}
+                style={{ justifyContent: 'flex-start', padding: '16px' }}
+              >
+                <FolderUp size={20} /> Archivos
+              </button>
+              <div style={{ flex: 1 }}></div>
+              <button onClick={() => { setActiveTool(null); onDisconnect(); }} style={{ background: '#ef4444', justifyContent: 'flex-start', padding: '16px' }}>
+                <WifiOff size={20} /> Desconectar
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="details-panel">
         <div className="details-content">
@@ -281,82 +327,46 @@ export default function DeviceManager({
 
           <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
 
-          {isThisConnected ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                <button 
-                  className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
-                  onClick={() => { setActiveTool('screen'); onConnectScreen(selectedDevice.id); }}
-                >
-                  <Monitor size={18} /> Pantalla
-                </button>
-                <button 
-                  className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
-                  onClick={() => { setActiveTool('files'); onConnectFiles(selectedDevice.id); }}
-                >
-                  <FolderUp size={18} /> Archivos
-                </button>
-                <button onClick={() => { setActiveTool(null); onDisconnect(); }} style={{ background: '#ef4444' }}>
-                  <WifiOff size={18} /> Desconectar
-                </button>
+          <div className="action-grid">
+            <div 
+              className={`action-card ${isOnline && !isConnecting ? 'primary' : ''}`}
+              onClick={() => {
+                if (isOnline && !isConnecting) {
+                  setActiveTool('screen');
+                  onConnectScreen(selectedDevice.id);
+                }
+              }}
+              style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
+            >
+              <div className="action-icon">
+                <Monitor size={24} />
               </div>
+              <div>
+                <h3>Control Remoto</h3>
+                <p>Inicia una conexión de video segura. Podrás ver la pantalla del dispositivo y controlarlo remotamente.</p>
+              </div>
+              {isConnecting && <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Conectando...</div>}
+            </div>
 
-              <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {activeTool === 'screen' && (
-                  <ScreenViewer stream={remoteStream} onMouseEvent={onMouseEvent} onKeyEvent={onKeyEvent} />
-                )}
-                {activeTool === 'files' && (
-                  <FileManager fileChannel={fileChannel} />
-                )}
-                {!activeTool && (
-                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                     Selecciona una herramienta para comenzar.
-                   </div>
-                )}
+            <div 
+              className="action-card"
+              onClick={() => {
+                if (isOnline && !isConnecting) {
+                  setActiveTool('files');
+                  onConnectFiles(selectedDevice.id);
+                }
+              }}
+              style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
+            >
+              <div className="action-icon">
+                <FolderUp size={24} />
+              </div>
+              <div>
+                <h3>Transferencia de Archivos</h3>
+                <p>Explora el sistema de archivos del dispositivo. Sube o descarga documentos de forma bidireccional.</p>
               </div>
             </div>
-          ) : (
-            <div className="action-grid">
-              <div 
-                className={`action-card ${isOnline && !isConnecting ? 'primary' : ''}`}
-                onClick={() => {
-                  if (isOnline && !isConnecting) {
-                    setActiveTool('screen');
-                    onConnectScreen(selectedDevice.id);
-                  }
-                }}
-                style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
-              >
-                <div className="action-icon">
-                  <Monitor size={24} />
-                </div>
-                <div>
-                  <h3>Control Remoto</h3>
-                  <p>Inicia una conexión de video segura. Podrás ver la pantalla del dispositivo y controlarlo remotamente.</p>
-                </div>
-                {isConnecting && <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Conectando...</div>}
-              </div>
-
-              <div 
-                className="action-card"
-                onClick={() => {
-                  if (isOnline && !isConnecting) {
-                    setActiveTool('files');
-                    onConnectFiles(selectedDevice.id);
-                  }
-                }}
-                style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
-              >
-                <div className="action-icon">
-                  <FolderUp size={24} />
-                </div>
-                <div>
-                  <h3>Transferencia de Archivos</h3>
-                  <p>Explora el sistema de archivos del dispositivo. Sube o descarga documentos de forma bidireccional.</p>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
