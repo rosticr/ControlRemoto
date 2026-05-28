@@ -14,6 +14,25 @@ app.use(express.json());
 // Sesiones en memoria para consola web y administradores
 const activeSessions = new Map();
 
+// Historial de APKs
+const APK_HISTORY_FILE = path.join(__dirname, 'apks_history.json');
+
+function loadApkHistory() {
+  if (!fs.existsSync(APK_HISTORY_FILE)) {
+    fs.writeFileSync(APK_HISTORY_FILE, JSON.stringify([], null, 2));
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(APK_HISTORY_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveApkHistory(history) {
+  fs.writeFileSync(APK_HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
 // Gestión de Usuarios
 const USERS_FILE = path.join(__dirname, 'users.json');
 
@@ -57,11 +76,27 @@ function authenticateToken(req, res, next) {
 
 // Descarga directa pública del último APK (para Downloader)
 app.get('/app.apk', (req, res) => {
-  const filePath = path.join(__dirname, 'public', 'app.apk');
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('Archivo APK no encontrado. Sube uno primero desde la consola.');
+  const history = loadApkHistory();
+  if (history.length === 0) {
+    // Fallback por si hay un app.apk estático en la raíz
+    const fallbackPath = path.join(__dirname, 'public', 'app.apk');
+    if (fs.existsSync(fallbackPath)) {
+      return res.download(fallbackPath);
+    }
+    return res.status(404).send('No hay ninguna versión de APK subida todavía en la consola.');
   }
-  res.download(filePath);
+
+  // Ordenar por fecha de subida descendente (más nuevo primero)
+  const sorted = [...history].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+  const latest = sorted[0];
+
+  const filePath = path.join(__dirname, 'public', 'versions', latest.filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send(`El archivo de la versión v${latest.version} no existe físicamente en el servidor.`);
+  }
+
+  // Descargar el archivo con el nombre genérico 'app.apk'
+  res.download(filePath, 'app.apk');
 });
 
 // Redirección corta mediante número para Downloader (ej: acceso.rosti.cr/1)
@@ -172,23 +207,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-const APK_HISTORY_FILE = path.join(__dirname, 'apks_history.json');
 
-function loadApkHistory() {
-  if (!fs.existsSync(APK_HISTORY_FILE)) {
-    fs.writeFileSync(APK_HISTORY_FILE, JSON.stringify([], null, 2));
-    return [];
-  }
-  try {
-    return JSON.parse(fs.readFileSync(APK_HISTORY_FILE, 'utf8'));
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveApkHistory(history) {
-  fs.writeFileSync(APK_HISTORY_FILE, JSON.stringify(history, null, 2));
-}
 
 // Endpoint para subir APK (solo Administradores)
 app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) => {
