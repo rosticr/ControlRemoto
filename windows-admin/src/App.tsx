@@ -272,6 +272,7 @@ function App() {
           onDisconnect={disconnect}
           serverUrl={currentServerUrl}
           token={currentUser.token}
+          onLogout={handleLogout}
         />
       )}
  

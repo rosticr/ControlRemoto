@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -18,6 +18,7 @@ interface Props {
   onDisconnect: () => void;
   serverUrl?: string;
   token?: string;
+  onLogout?: () => void;
 }
 
 interface SavedDevice {
@@ -40,7 +41,8 @@ export default function DeviceManager({
   onConnectFiles, 
   onDisconnect,
   serverUrl = '',
-  token = ''
+  token = '',
+  onLogout
 }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
@@ -581,6 +583,25 @@ export default function DeviceManager({
                   <button 
                     onClick={() => { setActiveTool(null); onDisconnect(); }} 
                     style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-main)',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      height: '28px'
+                    }}
+                  >
+                    <Monitor size={14} /> Equipos
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTool(null); onDisconnect(); }} 
+                    style={{
                       background: '#ef4444',
                       color: '#fff',
                       border: 'none',
@@ -597,6 +618,27 @@ export default function DeviceManager({
                   >
                     <WifiOff size={14} /> Desconectar
                   </button>
+                  {onLogout && (
+                    <button 
+                      onClick={() => { setActiveTool(null); onDisconnect(); onLogout(); }} 
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        height: '28px'
+                      }}
+                    >
+                      <LogOut size={14} /> Salir
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -779,7 +821,7 @@ export default function DeviceManager({
 
   return (
     <div style={{ display: 'flex', flex: 1, width: '100%', height: '100%' }}>
-      {renderList()}
+      {(!isConnected || activeTool === null) && renderList()}
       {renderDetails()}
     </div>
   );
