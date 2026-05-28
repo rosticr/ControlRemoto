@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Monitor, FolderUp, LogOut } from 'lucide-react';
-import ConnectionPanel from './components/ConnectionPanel';
+import { Monitor, Users, LogOut, ChevronLeft } from 'lucide-react';
+import DeviceManager from './components/DeviceManager';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
 import Login from './components/Login';
 import UsersManager from './components/UsersManager';
-import { Users } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,7 +14,10 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [roomId, setRoomId] = useState('');
-  const [activeTab, setActiveTab] = useState<'screen' | 'files' | 'users'>('screen');
+  
+  // New Navigation State
+  const [activeView, setActiveView] = useState<'devices' | 'users' | 'screen' | 'files'>('devices');
+  
   const [currentUser, setCurrentUser] = useState({ username: '', role: '' });
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [onlineDevices, setOnlineDevices] = useState<string[]>([]);
@@ -58,15 +60,10 @@ function App() {
     }
   }, [onlineDevices, isConnected, roomId]);
 
-  const connectToSignalingServer = async (roomIdToJoin: string) => {
-    console.log("CLICK en conectar. Socket es:", socket ? "Existe" : "NULL");
-    if (!socket) {
-      console.log("ERROR: socket es null");
-      return;
-    }
+  const connectToSignalingServer = async (roomIdToJoin: string, targetView: 'screen' | 'files') => {
+    if (!socket) return;
     setIsConnecting(true);
     
-    // Limpiar listeners anteriores de llamadas
     socket.off('answer');
     socket.off('ice-candidate');
 
@@ -74,11 +71,10 @@ function App() {
     setIsConnected(true);
     setIsConnecting(false);
     setRoomId(roomIdToJoin);
-    setActiveTab('screen');
+    setActiveView(targetView);
     
     setupWebRTC(socket, roomIdToJoin);
 
-    // Windows inicia la transmisión de video pidiendo un Offer
     try {
       const offer = await peerConnectionRef.current?.createOffer();
       if (offer) {
@@ -95,7 +91,6 @@ function App() {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
         isRemoteDescriptionSetRef.current = true;
         
-        // Procesar candidatos encolados
         for (const candidate of pendingIceCandidatesRef.current) {
           try {
             await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
@@ -110,9 +105,7 @@ function App() {
     });
 
     socket.on('ice-candidate', async (candidate) => {
-      console.log('Recibido ICE candidate remoto:', JSON.stringify(candidate));
       if (!peerConnectionRef.current) return;
-      
       if (isRemoteDescriptionSetRef.current) {
         try {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
@@ -120,7 +113,6 @@ function App() {
           console.error('Error adding received ice candidate', e);
         }
       } else {
-        // Encolar candidato si la descripción remota aún no está lista
         pendingIceCandidatesRef.current.push(candidate);
       }
     });
@@ -136,38 +128,14 @@ function App() {
     
     const configuration = { 
       iceServers: [
-        {
-          urls: "stun:stun.relay.metered.ca:80",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80?transport=tcp",
-          username: "93d3531d6cb9d21936c44b01",
-          credential: "1WRQmmSv2+K85BnG",
-        },
-        {
-          urls: "turns:global.relay.metered.ca:443?transport=tcp",
-          username: "93d3531d6cb9d21936c44b01",
-          credential: "1WRQmmSv2+K85BnG",
-        }
+        { urls: "stun:stun.relay.metered.ca:80" },
+        { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" },
+        { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" }
       ] 
     };
     const peerConnection = new RTCPeerConnection(configuration);
     peerConnectionRef.current = peerConnection;
 
-    // Monitor de estado de ICE
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log('ICE Connection State:', peerConnection.iceConnectionState);
-      if (peerConnection.iceConnectionState === 'failed') {
-        console.error('La conexión WebRTC falló (posible bloqueo de firewall o TURN server inactivo).');
-      }
-    };
-
-    // Monitor de estado de conexión
-    peerConnection.onconnectionstatechange = () => {
-      console.log('WebRTC Connection State:', peerConnection.connectionState);
-    };
-    
-    // Explicitly tell the peer connection we want to receive video
     try {
       peerConnection.addTransceiver('video', { direction: 'recvonly' });
     } catch (e) {
@@ -176,37 +144,26 @@ function App() {
     
     peerConnection.addEventListener('icecandidate', event => {
       if (event.candidate) {
-        console.log('Enviando ICE candidate local:', JSON.stringify(event.candidate));
         socket.emit('ice-candidate', { roomId: room, candidate: event.candidate });
       }
     });
 
     peerConnection.addEventListener('track', event => {
-      console.log('Received remote track', event.streams);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
       } else {
-        console.warn('No streams found in track event, creating a new MediaStream');
         const newStream = new MediaStream([event.track]);
         setRemoteStream(newStream);
       }
     });
 
-    // Create a data channel for mouse/keyboard controls
     const controlChannel = peerConnection.createDataChannel('control');
-    controlChannel.onopen = () => console.log('Control channel opened');
     dataChannelRef.current = controlChannel;
 
-    // Create a data channel for file transfer
     const filesChannel = peerConnection.createDataChannel('files');
     filesChannel.binaryType = 'arraybuffer';
-    filesChannel.onopen = () => {
-      console.log('File channel opened');
-      setFileChannel(filesChannel);
-    };
+    filesChannel.onopen = () => setFileChannel(filesChannel);
     filesChannel.onclose = () => setFileChannel(null);
-    
-    peerConnectionRef.current = peerConnection;
   };
 
   const disconnect = () => {
@@ -222,19 +179,18 @@ function App() {
     setFileChannel(null);
     setIsConnected(false);
     setRemoteStream(null);
+    setActiveView('devices');
   };
 
   const handleMouseEvent = (type: string, x: number, y: number) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
-      const message = JSON.stringify({ type, x, y });
-      dataChannelRef.current.send(message);
+      dataChannelRef.current.send(JSON.stringify({ type, x, y }));
     }
   };
 
   const handleKeyEvent = (key: string) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
-      const message = JSON.stringify({ type: 'key', key });
-      dataChannelRef.current.send(message);
+      dataChannelRef.current.send(JSON.stringify({ type: 'key', key }));
     }
   };
 
@@ -255,96 +211,91 @@ function App() {
     }} />;
   }
 
-  return (
-    <div className="app-container">
-      <div className="sidebar">
-        <div className="logo">
-          <h1>Control Remoto</h1>
-        </div>
-
-        <ConnectionPanel 
-          isConnected={isConnected} 
-          isConnecting={isConnecting}
-          onlineDevices={onlineDevices}
-          onConnect={connectToSignalingServer} 
-          onDisconnect={disconnect} 
-        />
-
-        {isConnected && (
-          <div className="tabs glass-panel">
-            <div 
-              className={`tab ${activeTab === 'screen' ? 'active' : ''}`}
-              onClick={() => setActiveTab('screen')}
-            >
-              <Monitor size={18} style={{ marginBottom: '4px' }} />
-              <div>Pantalla</div>
-            </div>
-            <div 
-              className={`tab ${activeTab === 'files' ? 'active' : ''}`}
-              onClick={() => setActiveTab('files')}
-            >
-              <FolderUp size={18} style={{ marginBottom: '4px' }} />
-              <div>Archivos</div>
-            </div>
+  // Si estamos en una vista de trabajo (Pantalla o Archivos), ocultar la barra lateral principal y mostrar un panel completo.
+  if (activeView === 'screen' || activeView === 'files') {
+    return (
+      <div className="work-area">
+        <div className="work-header">
+          <button className="btn-back" onClick={() => setActiveView('devices')}>
+            <ChevronLeft size={20} /> Volver
+          </button>
+          <div style={{ fontWeight: 600 }}>
+            {activeView === 'screen' ? 'Control Remoto' : 'Transferencia de Archivos'} - {roomId}
           </div>
-        )}
-
-        {currentUser.role === 'admin' && (
-          <div className="tabs glass-panel" style={{ marginTop: isConnected ? '16px' : '0' }}>
-            <div 
-              className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
-              style={{ padding: '12px', display: 'flex', flexDirection: 'row', gap: '12px', justifyContent: 'flex-start' }}
-            >
-              <Users size={18} />
-              <div>Gestión de Usuarios</div>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
-          <button 
-            onClick={handleLogout}
-            style={{
-              width: '100%',
-              background: 'rgba(239, 68, 68, 0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '10px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-            }}
-          >
-            <LogOut size={16} />
-            Cerrar Sesión
+          <div style={{ flex: 1 }} />
+          <button onClick={disconnect} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+            Desconectar
           </button>
         </div>
-      </div>
-
-      <div className="main-content">
-        <div style={{ display: activeTab === 'screen' ? 'block' : 'none', height: '100%' }}>
-          <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} onKeyEvent={handleKeyEvent} />
-        </div>
-        <div style={{ display: activeTab === 'files' ? 'block' : 'none', height: '100%' }}>
-          <FileManager fileChannel={fileChannel} />
-        </div>
-        {currentUser.role === 'admin' && (
-          <div style={{ display: activeTab === 'users' ? 'block' : 'none', height: '100%' }}>
-            <UsersManager serverUrl={currentServerUrl} />
+        
+        {activeView === 'screen' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} onKeyEvent={handleKeyEvent} />
+          </div>
+        )}
+        
+        {activeView === 'files' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <FileManager fileChannel={fileChannel} />
           </div>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      {/* 1. Nav Sidebar */}
+      <div className="nav-sidebar">
+        <div className="nav-logo">CR</div>
+        
+        <div 
+          className={`nav-item ${activeView === 'devices' ? 'active' : ''}`}
+          onClick={() => setActiveView('devices')}
+        >
+          <Monitor size={22} />
+          <span>Equipos</span>
+        </div>
+
+        {currentUser.role === 'admin' && (
+          <div 
+            className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveView('users')}
+          >
+            <Users size={22} />
+            <span>Usuarios</span>
+          </div>
+        )}
+
+        <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
+          <div 
+            className="nav-item" 
+            onClick={handleLogout}
+            style={{ color: '#ef4444' }}
+          >
+            <LogOut size={22} />
+          </div>
+        </div>
+      </div>
+
+      {/* 2 & 3. Main Content based on active view */}
+      {activeView === 'devices' && (
+        <DeviceManager 
+          isConnected={isConnected}
+          isConnecting={isConnecting}
+          onlineDevices={onlineDevices}
+          connectedRoomId={roomId}
+          onConnectScreen={(id) => connectToSignalingServer(id, 'screen')}
+          onConnectFiles={(id) => connectToSignalingServer(id, 'files')}
+          onDisconnect={disconnect}
+        />
+      )}
+
+      {activeView === 'users' && currentUser.role === 'admin' && (
+        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+          <UsersManager serverUrl={currentServerUrl} />
+        </div>
+      )}
     </div>
   );
 }
