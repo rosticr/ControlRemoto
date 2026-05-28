@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Flame } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (serverUrl: string, username: string, role: string) => void;
@@ -41,10 +41,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <div className="login-wrapper">
-      <div className="login-panel glass-panel">
+      <div className="login-panel">
         <div className="login-header">
           <div className="icon-circle">
-            <Lock size={28} />
+            <Flame size={32} strokeWidth={2.5} />
           </div>
           <h2>Control Remoto</h2>
           <p>Autenticación Requerida</p>

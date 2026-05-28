@@ -1,14 +1,14 @@
 :root {
-  --bg-darker: #0b1120;
-  --bg-dark: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.7);
-  --bg-panel: #1e293b;
+  --bg-darker: #080c16;
+  --bg-dark: #0d1323;
+  --bg-card: rgba(13, 19, 35, 0.7);
+  --bg-panel: #131b2f;
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --primary: #FF5722;
   --primary-hover: #E64A19;
   --accent: #FFC107;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.05);
   --success: #10b981;
 }
 
@@ -251,8 +251,8 @@ body {
 }
 
 .action-card.primary {
-  border-color: rgba(59, 130, 246, 0.3);
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+  border-color: rgba(255, 87, 34, 0.3);
+  background: linear-gradient(145deg, rgba(20, 25, 40, 0.9), rgba(10, 14, 25, 0.9));
 }
 
 .action-card.primary:hover {
@@ -390,15 +390,22 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
+  background: var(--bg-darker);
   position: relative;
   overflow: hidden;
+  padding: 40px;
 }
 
 .screen-viewer video {
-  max-width: 100%;
-  max-height: 100%;
+  max-width: 450px;
+  max-height: 850px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  background: #000;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 /* Login Component */
@@ -412,10 +419,16 @@ button:disabled {
 
 .login-panel {
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 32px;
+  background: rgba(13, 19, 35, 0.85);
+  backdrop-filter: blur(20px);
+  padding: 40px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.4);
 }
 
 .login-header {
@@ -427,15 +440,16 @@ button:disabled {
 }
 
 .icon-circle {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, rgba(255, 87, 34, 0.2), rgba(255, 193, 7, 0.1));
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary);
   margin-bottom: 8px;
+  border: 1px solid rgba(255, 87, 34, 0.3);
 }
 
 .login-header p {
