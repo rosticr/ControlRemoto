@@ -273,14 +273,14 @@ export default function DeviceManager({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button 
                 className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => { setActiveTool('screen'); onConnectScreen(selectedDevice.id); }}
+                onClick={() => setActiveTool('screen')}
                 style={{ justifyContent: 'flex-start', padding: '16px' }}
               >
                 <Monitor size={20} /> Ver Pantalla
               </button>
               <button 
                 className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => { setActiveTool('files'); onConnectFiles(selectedDevice.id); }}
+                onClick={() => setActiveTool('files')}
                 style={{ justifyContent: 'flex-start', padding: '16px' }}
               >
                 <FolderUp size={20} /> Archivos
@@ -333,7 +333,7 @@ export default function DeviceManager({
               onClick={() => {
                 if (isOnline && !isConnecting) {
                   setActiveTool('screen');
-                  onConnectScreen(selectedDevice.id);
+                  if (!isThisConnected) onConnectScreen(selectedDevice.id);
                 }
               }}
               style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
@@ -353,7 +353,7 @@ export default function DeviceManager({
               onClick={() => {
                 if (isOnline && !isConnecting) {
                   setActiveTool('files');
-                  onConnectFiles(selectedDevice.id);
+                  if (!isThisConnected) onConnectFiles(selectedDevice.id);
                 }
               }}
               style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
