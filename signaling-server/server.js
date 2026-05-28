@@ -14,8 +14,19 @@ app.use(express.json());
 // Sesiones en memoria para consola web y administradores
 const activeSessions = new Map();
 
+// Directorio de Persistencia (para evitar borrados al desplegar en contenedores efímeros como Render)
+const PERSIST_DIR = fs.existsSync('/data') ? '/data' : __dirname;
+
+const VERSIONS_DIR = fs.existsSync('/data') 
+  ? path.join('/data', 'versions')
+  : path.join(__dirname, 'public', 'versions');
+
+if (!fs.existsSync(VERSIONS_DIR)) {
+  fs.mkdirSync(VERSIONS_DIR, { recursive: true });
+}
+
 // Historial de APKs
-const APK_HISTORY_FILE = path.join(__dirname, 'apks_history.json');
+const APK_HISTORY_FILE = path.join(PERSIST_DIR, 'apks_history.json');
 
 function loadApkHistory() {
   if (!fs.existsSync(APK_HISTORY_FILE)) {
@@ -34,7 +45,7 @@ function saveApkHistory(history) {
 }
 
 // Gestión de Grupos
-const GROUPS_FILE = path.join(__dirname, 'groups.json');
+const GROUPS_FILE = path.join(PERSIST_DIR, 'groups.json');
 
 function loadGroups() {
   if (!fs.existsSync(GROUPS_FILE)) {
@@ -55,7 +66,7 @@ function saveGroups(groups) {
 }
 
 // Gestión de Usuarios
-const USERS_FILE = path.join(__dirname, 'users.json');
+const USERS_FILE = path.join(PERSIST_DIR, 'users.json');
 
 function loadUsers() {
   if (!fs.existsSync(USERS_FILE)) {
@@ -99,10 +110,13 @@ function authenticateToken(req, res, next) {
 app.get('/app.apk', (req, res) => {
   const history = loadApkHistory();
   if (history.length === 0) {
-    // Fallback por si hay un app.apk estático en la raíz
-    const fallbackPath = path.join(__dirname, 'public', 'app.apk');
-    if (fs.existsSync(fallbackPath)) {
-      return res.download(fallbackPath);
+    // Fallback por si hay un app.apk estático
+    const fallbackPath = path.join(VERSIONS_DIR, '../app.apk');
+    const oldFallbackPath = path.join(__dirname, 'public', 'app.apk');
+    const finalFallback = fs.existsSync(fallbackPath) ? fallbackPath : oldFallbackPath;
+    
+    if (fs.existsSync(finalFallback)) {
+      return res.download(finalFallback);
     }
     return res.status(404).send('No hay ninguna versión de APK subida todavía en la consola.');
   }
@@ -111,7 +125,7 @@ app.get('/app.apk', (req, res) => {
   const sorted = [...history].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
   const latest = sorted[0];
 
-  const filePath = path.join(__dirname, 'public', 'versions', latest.filename);
+  const filePath = path.join(VERSIONS_DIR, latest.filename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).send(`El archivo de la versión v${latest.version} no existe físicamente en el servidor.`);
   }
@@ -126,6 +140,9 @@ app.get('/1', (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+if (fs.existsSync('/data')) {
+  app.use('/versions', express.static(VERSIONS_DIR));
+}
 
 // REST API para Login
 app.post('/api/login', (req, res) => {
@@ -209,11 +226,8 @@ app.delete('/api/users/:username', authenticateToken, (req, res) => {
   res.json({ success: true });
 });
 
-// Configuración de Multer para Carga de APKs (usando carpeta temporal interna)
-const uploadDir = path.join(__dirname, 'public', 'versions');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Configuración de Multer para Carga de APKs
+const uploadDir = VERSIONS_DIR;
 const upload = multer({ dest: uploadDir });
 
 // Endpoint para subir APK (solo Administradores)
@@ -240,7 +254,7 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
   // Generar nombre de archivo final seguro
   const safeVersion = version.replace(/[^a-zA-Z0-9.-]/g, '_');
   const filename = `app-v${safeVersion}.apk`;
-  const finalPath = path.join(__dirname, 'public', 'versions', filename);
+  const finalPath = path.join(VERSIONS_DIR, filename);
 
   try {
     // Mover y renombrar el archivo temporal al destino definitivo
@@ -270,7 +284,7 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
     // Eliminar archivo anterior si cambió de nombre en la base de datos
     const oldRecord = history[existingIndex];
     if (oldRecord.filename !== filename) {
-      const oldPath = path.join(__dirname, 'public', 'versions', oldRecord.filename);
+      const oldPath = path.join(VERSIONS_DIR, oldRecord.filename);
       if (fs.existsSync(oldPath)) {
         fs.unlinkSync(oldPath);
       }
@@ -282,9 +296,16 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
   
   saveApkHistory(history);
 
-  // Copiar a public/app.apk para descarga directa principal
-  const destPath = path.join(__dirname, 'public', 'app.apk');
-  fs.copyFileSync(finalPath, destPath);
+  // Copiar a public/app.apk o VERSIONS_DIR parent para descarga directa principal
+  const destPath = path.join(VERSIONS_DIR, '../app.apk');
+  try {
+    fs.copyFileSync(finalPath, destPath);
+  } catch (e) {
+    // Si falla (por ejemplo si está fuera del directorio público local), copiar también a local como fallback
+    try {
+      fs.copyFileSync(finalPath, path.join(__dirname, 'public', 'app.apk'));
+    } catch (err) {}
+  }
 
   res.json({ success: true, record });
 });
@@ -360,10 +381,18 @@ app.get('/download/:filename', (req, res) => {
   }
 
   const filePath = filename === 'app.apk' 
-    ? path.join(__dirname, 'public', 'app.apk') 
-    : path.join(__dirname, 'public', 'versions', filename);
+    ? path.join(VERSIONS_DIR, '../app.apk') 
+    : path.join(VERSIONS_DIR, filename);
 
   if (!fs.existsSync(filePath)) {
+    // Si no se encuentra en el directorio persistente, buscar en el fallback local
+    const fallbackPath = filename === 'app.apk'
+      ? path.join(__dirname, 'public', 'app.apk')
+      : path.join(__dirname, 'public', 'versions', filename);
+      
+    if (fs.existsSync(fallbackPath)) {
+      return res.download(fallbackPath);
+    }
     return res.status(404).send('Archivo no encontrado.');
   }
 

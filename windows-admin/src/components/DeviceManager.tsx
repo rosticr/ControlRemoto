@@ -100,14 +100,37 @@ export default function DeviceManager({
       }
     }
 
-    // Sync from server on mount
+    // Sync from server on mount (Merge with local groups)
     if (serverUrl) {
       fetch(`${serverUrl}/api/groups`)
         .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            setSavedGroups(data);
-            localStorage.setItem('rosti_saved_groups', JSON.stringify(data));
+        .then(serverGroups => {
+          if (Array.isArray(serverGroups)) {
+            // Get local groups
+            let localGrs: string[] = [];
+            const savedGrs = localStorage.getItem('rosti_saved_groups');
+            if (savedGrs) {
+              try {
+                localGrs = JSON.parse(savedGrs);
+              } catch (e) {}
+            }
+            
+            // Merge lists (removing duplicates and falsy entries)
+            const mergedGroups = Array.from(new Set([...localGrs, ...serverGroups])).filter(Boolean) as string[];
+            
+            // Ensure 'Sin Grupo' is there or default to it if empty
+            if (mergedGroups.length === 0) {
+              mergedGroups.push('Sin Grupo');
+            }
+            
+            setSavedGroups(mergedGroups);
+            localStorage.setItem('rosti_saved_groups', JSON.stringify(mergedGroups));
+            
+            // If the server lacks any of our local groups, sync back to server
+            const needsSync = mergedGroups.some(g => !serverGroups.includes(g));
+            if (needsSync) {
+              syncGroupsWithServer(mergedGroups);
+            }
           }
         })
         .catch(err => console.error("Error fetching groups from server on mount:", err));
