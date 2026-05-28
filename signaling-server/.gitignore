@@ -1,0 +1,5 @@
+node_modules/
+*.log
+apks_history.json
+public/versions/
+public/app.apk

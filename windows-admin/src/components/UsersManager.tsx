@@ -3,6 +3,7 @@ import { User, UserPlus, Trash2, Edit2, Shield, ShieldAlert, Key } from 'lucide-
 
 interface Props {
   serverUrl: string;
+  token: string;
 }
 
 interface UserData {
@@ -11,7 +12,7 @@ interface UserData {
   passwordLength: number;
 }
 
-export default function UsersManager({ serverUrl }: Props) {
+export default function UsersManager({ serverUrl, token }: Props) {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,9 @@ export default function UsersManager({ serverUrl }: Props) {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${serverUrl}/api/users`);
+      const res = await fetch(`${serverUrl}/api/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -44,7 +47,7 @@ export default function UsersManager({ serverUrl }: Props) {
 
   useEffect(() => {
     fetchUsers();
-  }, [serverUrl]);
+  }, [serverUrl, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +63,10 @@ export default function UsersManager({ serverUrl }: Props) {
       
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ 
           username: formUsername, 
           password: formPassword || undefined,
@@ -91,7 +97,10 @@ export default function UsersManager({ serverUrl }: Props) {
     if (!confirm(`¿Estás seguro de eliminar al usuario "${username}"?`)) return;
 
     try {
-      const res = await fetch(`${serverUrl}/api/users/${username}`, { method: 'DELETE' });
+      const res = await fetch(`${serverUrl}/api/users/${username}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (data.success) {
         setSuccess('Usuario eliminado');

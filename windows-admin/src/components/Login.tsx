@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Flame } from 'lucide-react';
 
 interface LoginProps {
-  onLoginSuccess: (serverUrl: string, username: string, role: string) => void;
+  onLoginSuccess: (serverUrl: string, username: string, role: string, token: string) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
@@ -28,7 +28,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       
       const data = await response.json();
       if (data.success) {
-        onLoginSuccess(url, data.username, data.role);
+        onLoginSuccess(url, data.username, data.role, data.token);
       } else {
         setError(data.error || 'Credenciales incorrectas. Acceso denegado.');
       }

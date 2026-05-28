@@ -18,7 +18,7 @@ function App() {
   // New Navigation State
   const [activeView, setActiveView] = useState<'devices' | 'users'>('devices');
   
-  const [currentUser, setCurrentUser] = useState({ username: '', role: '' });
+  const [currentUser, setCurrentUser] = useState({ username: '', role: '', token: '' });
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [onlineDevices, setOnlineDevices] = useState<string[]>([]);
   const [fileChannel, setFileChannel] = useState<RTCDataChannel | null>(null);
@@ -30,7 +30,9 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const globalSocket = io(currentServerUrl);
+      const globalSocket = io(currentServerUrl, {
+        auth: { token: currentUser.token }
+      });
       
       globalSocket.on('connect', () => {
         console.log("Conectado al servidor como Administrador");
@@ -192,19 +194,27 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     disconnect();
     if (socket) {
       socket.disconnect();
       setSocket(null);
     }
+    try {
+      await fetch(`${currentServerUrl}/api/logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
+      });
+    } catch (e) {
+      // ignore
+    }
     setIsAuthenticated(false);
   };
 
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={(url, username, role) => {
+    return <Login onLoginSuccess={(url, username, role, token) => {
       setCurrentServerUrl(url);
-      setCurrentUser({ username, role });
+      setCurrentUser({ username, role, token });
       setIsAuthenticated(true);
     }} />;
   }
@@ -222,7 +232,7 @@ function App() {
           <Monitor size={22} />
           <span>Equipos</span>
         </div>
-
+ 
         {currentUser.role === 'admin' && (
           <div 
             className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
@@ -232,7 +242,7 @@ function App() {
             <span>Usuarios</span>
           </div>
         )}
-
+ 
         <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
           <div 
             className="nav-item" 
@@ -243,7 +253,7 @@ function App() {
           </div>
         </div>
       </div>
-
+ 
       {/* 2 & 3. Main Content based on active view */}
       {activeView === 'devices' && (
         <DeviceManager 
@@ -260,10 +270,10 @@ function App() {
           onDisconnect={disconnect}
         />
       )}
-
+ 
       {activeView === 'users' && currentUser.role === 'admin' && (
         <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
-          <UsersManager serverUrl={currentServerUrl} />
+          <UsersManager serverUrl={currentServerUrl} token={currentUser.token} />
         </div>
       )}
     </div>
