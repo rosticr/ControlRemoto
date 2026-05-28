@@ -40,23 +40,41 @@ export default function DeviceManager({
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
   const [savedDevices, setSavedDevices] = useState<SavedDevice[]>([]);
+  const [savedGroups, setSavedGroups] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   
-  // Form for new device
+  // Form for new device & group
   const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
   const [newGroup, setNewGroup] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  
-  const uniqueGroups = Array.from(new Set(savedDevices.map(d => d.group).filter(Boolean))) as string[];
 
   useEffect(() => {
-    const saved = localStorage.getItem('rosti_saved_devices');
-    if (saved) {
+    const savedDevs = localStorage.getItem('rosti_saved_devices');
+    let devicesList: SavedDevice[] = [];
+    if (savedDevs) {
       try {
-        setSavedDevices(JSON.parse(saved));
+        devicesList = JSON.parse(savedDevs);
+        setSavedDevices(devicesList);
       } catch (e) {
         console.error("Error parsing saved devices", e);
+      }
+    }
+
+    const savedGrs = localStorage.getItem('rosti_saved_groups');
+    if (savedGrs) {
+      try {
+        setSavedGroups(JSON.parse(savedGrs));
+      } catch (e) {
+        console.error("Error parsing saved groups", e);
+      }
+    } else {
+      // Migrate from existing devices if they have groups
+      const existingGroups = Array.from(new Set(devicesList.map(d => d.group).filter(Boolean))) as string[];
+      if (existingGroups.length > 0) {
+        setSavedGroups(existingGroups);
+        localStorage.setItem('rosti_saved_groups', JSON.stringify(existingGroups));
       }
     }
   }, []);
@@ -64,6 +82,14 @@ export default function DeviceManager({
   const saveDevice = () => {
     if (!newId.trim() || !newName.trim()) return;
     const groupVal = newGroup.trim() || undefined;
+    
+    // Add to savedGroups if it doesn't exist
+    if (groupVal && !savedGroups.includes(groupVal)) {
+      const updatedGroups = [...savedGroups, groupVal];
+      setSavedGroups(updatedGroups);
+      localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+    }
+
     const newList = [...savedDevices, { id: newId.trim(), name: newName.trim(), group: groupVal }];
     setSavedDevices(newList);
     localStorage.setItem('rosti_saved_devices', JSON.stringify(newList));
@@ -71,6 +97,55 @@ export default function DeviceManager({
     setNewName('');
     setNewGroup('');
     setActiveTab('list');
+  };
+
+  const saveGroup = () => {
+    const trimmed = newGroupName.trim();
+    if (!trimmed) return;
+    if (savedGroups.includes(trimmed)) {
+      alert("El grupo ya existe");
+      return;
+    }
+    const updatedGroups = [...savedGroups, trimmed];
+    setSavedGroups(updatedGroups);
+    localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+    setNewGroupName('');
+    setActiveTab('list');
+  };
+
+  const removeGroup = (groupName: string) => {
+    const updatedGroups = savedGroups.filter(g => g !== groupName);
+    setSavedGroups(updatedGroups);
+    localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+
+    // Update devices belonging to this group
+    const updatedDevices = savedDevices.map(d => {
+      if (d.group === groupName) {
+        return { ...d, group: undefined };
+      }
+      return d;
+    });
+    setSavedDevices(updatedDevices);
+    localStorage.setItem('rosti_saved_devices', JSON.stringify(updatedDevices));
+    
+    if (selectedDevice && selectedDevice.group === groupName) {
+      setSelectedDevice({ ...selectedDevice, group: undefined });
+    }
+  };
+
+  const updateDeviceGroup = (deviceId: string, groupName: string | undefined) => {
+    const updatedDevices = savedDevices.map(d => {
+      if (d.id === deviceId) {
+        return { ...d, group: groupName || undefined };
+      }
+      return d;
+    });
+    setSavedDevices(updatedDevices);
+    localStorage.setItem('rosti_saved_devices', JSON.stringify(updatedDevices));
+    
+    if (selectedDevice && selectedDevice.id === deviceId) {
+      setSelectedDevice({ ...selectedDevice, group: groupName || undefined });
+    }
   };
 
   const removeDevice = (id: string, e: React.MouseEvent) => {
@@ -113,119 +188,186 @@ export default function DeviceManager({
       </div>
 
       {activeTab === 'add' ? (
-        <div style={{ padding: '24px' }}>
-          <div className="input-group">
-            <label>Nombre del Equipo</label>
-            <input 
-              type="text" 
-              placeholder="Ej: Tablet Cocina" 
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <label style={{ marginTop: '8px' }}>Grupo (Opcional)</label>
-            <input 
-              type="text" 
-              placeholder="Ej: Sucursal Centro" 
-              list="groupsList"
-              value={newGroup}
-              onChange={(e) => setNewGroup(e.target.value)}
-            />
-            <datalist id="groupsList">
-              {uniqueGroups.map(g => (
-                <option key={g} value={g} />
-              ))}
-            </datalist>
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto', maxHeight: 'calc(100vh - 150px)' }}>
+          {/* Formulario de Crear Grupo */}
+          <div style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--accent)', fontWeight: 600 }}>Crear Nuevo Grupo</h3>
+            <div className="input-group">
+              <label>Nombre del Grupo</label>
+              <input 
+                type="text" 
+                placeholder="Ej: Sucursal Norte" 
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+              />
+              <button 
+                style={{ marginTop: '8px', padding: '8px 12px', fontSize: '0.85rem' }} 
+                onClick={saveGroup}
+                disabled={!newGroupName.trim()}
+              >
+                <Plus size={16} />
+                Crear Grupo
+              </button>
+            </div>
+          </div>
 
-            <label style={{ marginTop: '8px' }}>ID Permanente</label>
-            <input 
-              type="text" 
-              placeholder="Ej: 123-456" 
-              value={newId}
-              onChange={(e) => setNewId(e.target.value)}
-            />
-            <button 
-              style={{ marginTop: '16px' }} 
-              onClick={saveDevice}
-              disabled={!newId || !newName}
-            >
-              <Plus size={18} />
-              Guardar Equipo
-            </button>
+          {/* Formulario de Vincular Equipo */}
+          <div style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--accent)', fontWeight: 600 }}>Vincular Nuevo Equipo</h3>
+            <div className="input-group">
+              <label>Nombre del Equipo</label>
+              <input 
+                type="text" 
+                placeholder="Ej: Tablet Cocina" 
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              
+              <label style={{ marginTop: '8px' }}>Grupo (Opcional)</label>
+              <input 
+                type="text" 
+                placeholder="Ej: Sucursal Centro" 
+                list="groupsList"
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+              />
+              <datalist id="groupsList">
+                {savedGroups.map(g => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+
+              <label style={{ marginTop: '8px' }}>ID Permanente</label>
+              <input 
+                type="text" 
+                placeholder="Ej: 123-456" 
+                value={newId}
+                onChange={(e) => setNewId(e.target.value)}
+              />
+              <button 
+                style={{ marginTop: '16px' }} 
+                onClick={saveDevice}
+                disabled={!newId.trim() || !newName.trim()}
+              >
+                <Plus size={18} />
+                Guardar Equipo
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         <div className="device-list">
-          {savedDevices.length === 0 ? (
+          {savedDevices.length === 0 && savedGroups.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: '40px' }}>
-              No hay equipos vinculados.
+              No hay equipos ni grupos vinculados.
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {Object.entries(
-                savedDevices.reduce((acc, device) => {
+              {(() => {
+                const acc: Record<string, SavedDevice[]> = {};
+                
+                // Initialize all saved groups
+                savedGroups.forEach(g => {
+                  acc[g] = [];
+                });
+                
+                // Populate devices
+                savedDevices.forEach(device => {
                   const group = device.group || 'Sin Grupo';
-                  if (!acc[group]) acc[group] = [];
+                  if (!acc[group]) {
+                    acc[group] = [];
+                  }
                   acc[group].push(device);
-                  return acc;
-                }, {} as Record<string, SavedDevice[]>)
-              ).map(([groupName, devices]) => {
+                });
+                
+                return Object.entries(acc);
+              })().map(([groupName, devices]) => {
                 const isCollapsed = collapsedGroups[groupName] || false;
                 const onlineCount = devices.filter(d => onlineDevices.includes(d.id)).length;
                 
                 return (
-                <div key={groupName} style={{ marginBottom: '8px' }}>
-                  <div 
-                    onClick={() => toggleGroup(groupName)}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      padding: '8px 12px', cursor: 'pointer',
-                      color: 'var(--text-muted)'
-                    }}
-                  >
-                    {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                    <Folder size={14} />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1 }}>{groupName}</span>
-                    <span style={{ fontSize: '0.75rem', color: onlineCount > 0 ? 'var(--success)' : 'inherit' }}>
-                      {onlineCount}/{devices.length}
-                    </span>
-                  </div>
-                  
-                  {!isCollapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '12px' }}>
-                      {devices.map(device => {
-                        const isOnline = onlineDevices.includes(device.id);
-                        const isSelected = selectedDevice?.id === device.id;
-                        return (
-                          <div 
-                            key={device.id}
-                            className={`device-item ${isSelected ? 'active' : ''}`}
-                            onClick={() => {
-                              setSelectedDevice(device);
-                              if (connectedRoomId !== device.id) {
-                                setActiveTool(null);
-                              }
-                            }}
-                          >
-                            <div className="device-icon">
-                              <MonitorSmartphone size={18} />
-                              <div style={{
-                                position: 'absolute', bottom: '6px', right: '6px',
-                                width: '8px', height: '8px', borderRadius: '50%',
-                                background: isOnline ? 'var(--success)' : '#ef4444',
-                                border: '2px solid var(--bg-dark)'
-                              }} />
-                            </div>
-                            <div className="device-info">
-                              <h4>{device.name}</h4>
-                              <p>{isOnline ? 'En línea' : 'Desconectado'}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  <div key={groupName} style={{ marginBottom: '8px' }}>
+                    <div 
+                      onClick={() => toggleGroup(groupName)}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 12px', cursor: 'pointer',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      <Folder size={14} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1 }}>{groupName}</span>
+                      <span style={{ fontSize: '0.75rem', color: onlineCount > 0 ? 'var(--success)' : 'inherit', marginRight: '4px' }}>
+                        {onlineCount}/{devices.length}
+                      </span>
+                      {groupName !== 'Sin Grupo' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`¿Estás seguro de eliminar el grupo "${groupName}"? Los equipos dentro de él se moverán a "Sin Grupo".`)) {
+                              removeGroup(groupName);
+                            }
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Eliminar Grupo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-              )})}
+                    
+                    {!isCollapsed && (
+                      <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '12px' }}>
+                        {devices.length === 0 ? (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '8px 16px', margin: 0, fontStyle: 'italic' }}>
+                            (Grupo vacío - Sin equipos)
+                          </p>
+                        ) : (
+                          devices.map(device => {
+                            const isOnline = onlineDevices.includes(device.id);
+                            const isSelected = selectedDevice?.id === device.id;
+                            return (
+                              <div 
+                                key={device.id}
+                                className={`device-item ${isSelected ? 'active' : ''}`}
+                                onClick={() => {
+                                  setSelectedDevice(device);
+                                  if (connectedRoomId !== device.id) {
+                                    setActiveTool(null);
+                                  }
+                                }}
+                              >
+                                <div className="device-icon">
+                                  <MonitorSmartphone size={18} />
+                                  <div style={{
+                                    position: 'absolute', bottom: '6px', right: '6px',
+                                    width: '8px', height: '8px', borderRadius: '50%',
+                                    background: isOnline ? 'var(--success)' : '#ef4444',
+                                    border: '2px solid var(--bg-dark)'
+                                  }} />
+                                </div>
+                                <div className="device-info">
+                                  <h4>{device.name}</h4>
+                                  <p>{isOnline ? 'En línea' : 'Desconectado'}</p>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -267,6 +409,29 @@ export default function DeviceManager({
             <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
               <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem' }}>{selectedDevice.name}</h3>
               <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Grupo:</span>
+                <select
+                  value={selectedDevice.group || ''}
+                  onChange={(e) => updateDeviceGroup(selectedDevice.id, e.target.value)}
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-main)',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    flex: 1
+                  }}
+                >
+                  <option value="">Sin Grupo</option>
+                  {savedGroups.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
               <div className="status-badge" style={{ marginTop: 0 }}>Conexión Activa</div>
             </div>
             
@@ -305,13 +470,35 @@ export default function DeviceManager({
               </div>
               <div>
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>{selectedDevice.name}</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                   <span style={{ color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</span>
                   {isOnline ? (
                     <span className="status-badge">En línea</span>
                   ) : (
                     <span className="status-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>Desconectado</span>
                   )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Grupo:</span>
+                  <select
+                    value={selectedDevice.group || ''}
+                    onChange={(e) => updateDeviceGroup(selectedDevice.id, e.target.value)}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.2)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-main)',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">Sin Grupo</option>
+                    {savedGroups.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
