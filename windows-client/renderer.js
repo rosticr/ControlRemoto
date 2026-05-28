@@ -285,10 +285,8 @@ window.addEventListener('socket-offer', async (e) => {
         mandatory: {
           chromeMediaSource: 'desktop',
           chromeMediaSourceId: primarySource.id,
-          minWidth: 1280,
-          maxWidth: 1280,
-          minHeight: 720,
-          maxHeight: 720
+          maxWidth: 3840,
+          maxHeight: 2160
         }
       }
     });
@@ -326,6 +324,7 @@ window.addEventListener('socket-offer', async (e) => {
             if (data.type === 'move') {
               window.electronAPI.sendInputCmd(`move ${data.x} ${data.y}`);
             } else if (data.type === 'down') {
+              window.electronAPI.sendInputCmd(`move ${data.x} ${data.y}`);
               window.electronAPI.sendInputCmd('down');
             } else if (data.type === 'up') {
               window.electronAPI.sendInputCmd('up');

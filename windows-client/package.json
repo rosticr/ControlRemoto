@@ -1,6 +1,6 @@
 {
   "name": "rosti-windows-client",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Cliente remoto de control desatendido para Windows - Rosti",
   "main": "main.js",
   "scripts": {
