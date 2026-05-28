@@ -95,8 +95,8 @@ app.get('/app.apk', (req, res) => {
     return res.status(404).send(`El archivo de la versión v${latest.version} no existe físicamente en el servidor.`);
   }
 
-  // Descargar el archivo con el nombre genérico 'app.apk'
-  res.download(filePath, 'app.apk');
+  // Descargar el archivo con su nombre real de versión
+  res.download(filePath, latest.filename);
 });
 
 // Redirección corta mediante número para Downloader (ej: acceso.rosti.cr/1)

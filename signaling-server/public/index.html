@@ -521,8 +521,7 @@
 
             document.getElementById('user-display').textContent = `Usuario: ${username} (${role === 'admin' ? 'Administrador' : 'Operador'})`;
 
-            // Configurar botones de descarga
-            document.getElementById('web-download-btn').href = `/download/app.apk?token=${token}`;
+
 
             // Configurar url de Downloader
             const host = window.location.origin.replace(/^https?:\/\//, '');
@@ -649,6 +648,7 @@
             const token = localStorage.getItem('rosti_dashboard_token');
             const role = localStorage.getItem('rosti_dashboard_role');
             const tbody = document.getElementById('apk-history-list');
+            const dlBtn = document.getElementById('web-download-btn');
 
             try {
                 const response = await fetch('/api/apk-history', {
@@ -664,17 +664,32 @@
 
                 if (data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No se han cargado versiones APK todavía.</td></tr>';
+                    dlBtn.textContent = 'Sin APKs disponibles';
+                    dlBtn.removeAttribute('href');
+                    dlBtn.style.opacity = '0.5';
+                    dlBtn.style.pointerEvents = 'none';
                     return;
                 }
 
-                tbody.innerHTML = data.map(h => `
+                // Ordenar por fecha de subida descendente (más nuevo primero)
+                const sorted = [...data].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+                const latest = sorted[0];
+
+                // Actualizar botón superior de descarga dinámicamente
+                dlBtn.textContent = `Descargar ${latest.filename} (Última versión)`;
+                dlBtn.href = `/download/${latest.filename}?token=${token}`;
+                dlBtn.setAttribute('download', latest.filename);
+                dlBtn.style.opacity = '1';
+                dlBtn.style.pointerEvents = 'auto';
+
+                tbody.innerHTML = sorted.map(h => `
                     <tr>
                         <td><strong>v${h.version}</strong></td>
                         <td>${new Date(h.uploadedAt).toLocaleString()}</td>
                         <td>${h.uploadedBy}</td>
                         <td>${h.notes || '-'}</td>
                         <td>
-                            <a href="/download/${h.filename}?token=${token}" download class="btn btn-table" style="margin-right: 8px;">Descargar</a>
+                            <a href="/download/${h.filename}?token=${token}" download="${h.filename}" class="btn btn-table" style="margin-right: 8px;">Descargar</a>
                             ${role === 'admin' ? `<button onclick="deleteApkVersion('${h.version}')" class="btn btn-danger btn-table">Eliminar</button>` : ''}
                         </td>
                     </tr>
