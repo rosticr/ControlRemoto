@@ -74,6 +74,7 @@ function App() {
     setIsConnected(true);
     setIsConnecting(false);
     setRoomId(roomIdToJoin);
+    setActiveTab('screen');
     
     setupWebRTC(socket, roomIdToJoin);
 
@@ -285,15 +286,20 @@ function App() {
               <FolderUp size={18} style={{ marginBottom: '4px' }} />
               <div>Archivos</div>
             </div>
-            {currentUser.role === 'admin' && (
-              <div 
-                className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-                onClick={() => setActiveTab('users')}
-              >
-                <Users size={18} style={{ marginBottom: '4px' }} />
-                <div>Usuarios</div>
-              </div>
-            )}
+            </div>
+          </div>
+        )}
+
+        {currentUser.role === 'admin' && (
+          <div className="tabs glass-panel" style={{ marginTop: isConnected ? '16px' : '0' }}>
+            <div 
+              className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+              style={{ padding: '12px', display: 'flex', flexDirection: 'row', gap: '12px', justifyContent: 'flex-start' }}
+            >
+              <Users size={18} />
+              <div>Gestión de Usuarios</div>
+            </div>
           </div>
         )}
 
