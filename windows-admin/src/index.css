@@ -5,9 +5,9 @@
   --bg-panel: #1e293b;
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --primary: #3b82f6;      /* Cambiado a azul estilo TeamViewer */
-  --primary-hover: #2563eb;
-  --accent: #0ea5e9;
+  --primary: #FF5722;
+  --primary-hover: #E64A19;
+  --accent: #FFC107;
   --border: rgba(255, 255, 255, 0.08);
   --success: #10b981;
 }
@@ -80,7 +80,6 @@ body {
 }
 
 .nav-item.active {
-  background: rgba(59, 130, 246, 0.15);
   color: var(--primary);
   border-left: 3px solid var(--primary);
   border-radius: 12px 12px 12px 0;

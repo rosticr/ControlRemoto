@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff } from 'lucide-react';
 
+import ScreenViewer from './ScreenViewer';
+import FileManager from './FileManager';
+
 interface Props {
   isConnected: boolean;
   isConnecting: boolean;
   onlineDevices: string[];
   connectedRoomId: string;
+  remoteStream: MediaStream | null;
+  fileChannel: RTCDataChannel | null;
+  onMouseEvent: (type: string, x: number, y: number) => void;
+  onKeyEvent: (key: string) => void;
   onConnectScreen: (roomId: string) => void;
   onConnectFiles: (roomId: string) => void;
   onDisconnect: () => void;
@@ -22,11 +29,16 @@ export default function DeviceManager({
   isConnecting, 
   onlineDevices, 
   connectedRoomId,
+  remoteStream,
+  fileChannel,
+  onMouseEvent,
+  onKeyEvent,
   onConnectScreen, 
   onConnectFiles, 
   onDisconnect 
 }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
+  const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
   const [savedDevices, setSavedDevices] = useState<SavedDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   
@@ -187,7 +199,12 @@ export default function DeviceManager({
                           <div 
                             key={device.id}
                             className={`device-item ${isSelected ? 'active' : ''}`}
-                            onClick={() => setSelectedDevice(device)}
+                            onClick={() => {
+                              setSelectedDevice(device);
+                              if (connectedRoomId !== device.id) {
+                                setActiveTool(null);
+                              }
+                            }}
                           >
                             <div className="device-icon">
                               <MonitorSmartphone size={18} />
@@ -265,27 +282,49 @@ export default function DeviceManager({
           <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
 
           {isThisConnected ? (
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '24px', borderRadius: '16px' }}>
-              <h3 style={{ color: 'var(--success)', marginTop: 0 }}>Conexión Activa</h3>
-              <p style={{ color: 'var(--text-muted)' }}>Estás conectado actualmente a este dispositivo.</p>
-              
-              <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
-                <button onClick={() => onConnectScreen(selectedDevice.id)}>
-                  <Monitor size={18} /> Ver Pantalla
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                <button 
+                  className={activeTool === 'screen' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => { setActiveTool('screen'); onConnectScreen(selectedDevice.id); }}
+                >
+                  <Monitor size={18} /> Pantalla
                 </button>
-                <button onClick={() => onConnectFiles(selectedDevice.id)}>
-                  <FolderUp size={18} /> Ver Archivos
+                <button 
+                  className={activeTool === 'files' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => { setActiveTool('files'); onConnectFiles(selectedDevice.id); }}
+                >
+                  <FolderUp size={18} /> Archivos
                 </button>
-                <button onClick={onDisconnect} style={{ background: '#ef4444' }}>
+                <button onClick={() => { setActiveTool(null); onDisconnect(); }} style={{ background: '#ef4444' }}>
                   <WifiOff size={18} /> Desconectar
                 </button>
+              </div>
+
+              <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {activeTool === 'screen' && (
+                  <ScreenViewer stream={remoteStream} onMouseEvent={onMouseEvent} onKeyEvent={onKeyEvent} />
+                )}
+                {activeTool === 'files' && (
+                  <FileManager fileChannel={fileChannel} />
+                )}
+                {!activeTool && (
+                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                     Selecciona una herramienta para comenzar.
+                   </div>
+                )}
               </div>
             </div>
           ) : (
             <div className="action-grid">
               <div 
                 className={`action-card ${isOnline && !isConnecting ? 'primary' : ''}`}
-                onClick={() => isOnline && !isConnecting && onConnectScreen(selectedDevice.id)}
+                onClick={() => {
+                  if (isOnline && !isConnecting) {
+                    setActiveTool('screen');
+                    onConnectScreen(selectedDevice.id);
+                  }
+                }}
                 style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
               >
                 <div className="action-icon">
@@ -300,7 +339,12 @@ export default function DeviceManager({
 
               <div 
                 className="action-card"
-                onClick={() => isOnline && !isConnecting && onConnectFiles(selectedDevice.id)}
+                onClick={() => {
+                  if (isOnline && !isConnecting) {
+                    setActiveTool('files');
+                    onConnectFiles(selectedDevice.id);
+                  }
+                }}
                 style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
               >
                 <div className="action-icon">

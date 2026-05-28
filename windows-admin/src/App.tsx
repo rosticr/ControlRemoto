@@ -16,7 +16,7 @@ function App() {
   const [roomId, setRoomId] = useState('');
   
   // New Navigation State
-  const [activeView, setActiveView] = useState<'devices' | 'users' | 'screen' | 'files'>('devices');
+  const [activeView, setActiveView] = useState<'devices' | 'users'>('devices');
   
   const [currentUser, setCurrentUser] = useState({ username: '', role: '' });
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -71,7 +71,6 @@ function App() {
     setIsConnected(true);
     setIsConnecting(false);
     setRoomId(roomIdToJoin);
-    setActiveView(targetView);
     
     setupWebRTC(socket, roomIdToJoin);
 
@@ -179,7 +178,6 @@ function App() {
     setFileChannel(null);
     setIsConnected(false);
     setRemoteStream(null);
-    setActiveView('devices');
   };
 
   const handleMouseEvent = (type: string, x: number, y: number) => {
@@ -209,38 +207,6 @@ function App() {
       setCurrentUser({ username, role });
       setIsAuthenticated(true);
     }} />;
-  }
-
-  // Si estamos en una vista de trabajo (Pantalla o Archivos), ocultar la barra lateral principal y mostrar un panel completo.
-  if (activeView === 'screen' || activeView === 'files') {
-    return (
-      <div className="work-area">
-        <div className="work-header">
-          <button className="btn-back" onClick={() => setActiveView('devices')}>
-            <ChevronLeft size={20} /> Volver
-          </button>
-          <div style={{ fontWeight: 600 }}>
-            {activeView === 'screen' ? 'Control Remoto' : 'Transferencia de Archivos'} - {roomId}
-          </div>
-          <div style={{ flex: 1 }} />
-          <button onClick={disconnect} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-            Desconectar
-          </button>
-        </div>
-        
-        {activeView === 'screen' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} onKeyEvent={handleKeyEvent} />
-          </div>
-        )}
-        
-        {activeView === 'files' && (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <FileManager fileChannel={fileChannel} />
-          </div>
-        )}
-      </div>
-    );
   }
 
   return (
@@ -285,6 +251,10 @@ function App() {
           isConnecting={isConnecting}
           onlineDevices={onlineDevices}
           connectedRoomId={roomId}
+          remoteStream={remoteStream}
+          fileChannel={fileChannel}
+          onMouseEvent={handleMouseEvent}
+          onKeyEvent={handleKeyEvent}
           onConnectScreen={(id) => connectToSignalingServer(id, 'screen')}
           onConnectFiles={(id) => connectToSignalingServer(id, 'files')}
           onDisconnect={disconnect}
