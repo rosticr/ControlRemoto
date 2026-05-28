@@ -55,28 +55,18 @@ function authenticateToken(req, res, next) {
   next();
 }
 
-// Interceptar descarga directa de app.apk antes de que express.static lo sirva públicamente
+// Descarga directa pública del último APK (para Downloader)
 app.get('/app.apk', (req, res) => {
-  const key = req.query.key;
-  const token = req.query.token;
-  
-  let authorized = false;
-  if (key && key === getAdminPassword()) {
-    authorized = true;
-  }
-  if (!authorized && token && activeSessions.has(token)) {
-    authorized = true;
-  }
-
-  if (!authorized) {
-    return res.status(403).send('Acceso denegado. Se requiere autenticacion. Si usas Downloader, agrega la clave de descarga, ej: acceso.rosti.cr/app.apk?key=TU_CLAVE');
-  }
-
   const filePath = path.join(__dirname, 'public', 'app.apk');
   if (!fs.existsSync(filePath)) {
-    return res.status(404).send('Archivo APK no encontrado. Sube uno primero.');
+    return res.status(404).send('Archivo APK no encontrado. Sube uno primero desde la consola.');
   }
   res.download(filePath);
+});
+
+// Redirección corta mediante número para Downloader (ej: acceso.rosti.cr/1)
+app.get('/1', (req, res) => {
+  res.redirect('/app.apk');
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

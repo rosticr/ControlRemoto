@@ -393,15 +393,15 @@
                     </h3>
                     <div style="font-size: 0.85rem; line-height: 1.5; margin-top: 8px;">
                         <p style="margin: 0 0 8px 0; color: var(--text-muted);">
-                            La descarga directa de la última versión está protegida. Utiliza el enlace web o configúrala en Downloader:
+                            Descarga la última versión del APK directamente en tu navegador o ingresando la dirección corta en la aplicación Downloader:
                         </p>
                         <a id="web-download-btn" href="#" download class="btn" style="width: auto; padding: 8px 16px; font-size: 0.85rem; margin-bottom: 12px;">
                             Descargar app.apk (Última versión)
                         </a>
                         <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-                            <strong style="color: var(--text);">En la aplicación Downloader:</strong><br>
-                            Introduce esta URL exacta:<br>
-                            <code id="downloader-url-display" class="code-block" style="display: block; margin-top: 6px; text-align: center; word-break: break-all;">Cargando...</code>
+                            <strong style="color: var(--text);">En la aplicación Downloader (TV / Box):</strong><br>
+                            Introduce esta dirección súper corta y pulsa <strong>Go</strong>:<br>
+                            <code id="downloader-url-display" class="code-block" style="display: block; margin-top: 6px; text-align: center; word-break: break-all; font-size: 1.1rem; padding: 6px 12px;">Cargando...</code>
                         </div>
                     </div>
                 </div>
@@ -526,9 +526,7 @@
 
             // Configurar url de Downloader
             const host = window.location.origin.replace(/^https?:\/\//, '');
-            // Generar clave aproximada (la clave en backend es la contraseña de admin)
-            // ParaDownloader indicamos que agregue ?key=CLAVE del admin en el display
-            document.getElementById('downloader-url-display').textContent = `${host}/app.apk?key=SU_CONTRASENA`;
+            document.getElementById('downloader-url-display').textContent = `${host}/1`;
 
             // Mostrar el panel de subida si es administrador
             if (role === 'admin') {
