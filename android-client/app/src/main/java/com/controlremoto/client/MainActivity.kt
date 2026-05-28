@@ -15,6 +15,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.os.Build
+import android.os.Environment
+import android.net.Uri
+import androidx.core.app.ActivityCompat
+import android.content.pm.PackageManager
 
 class MainActivity : Activity() {
 
@@ -56,6 +60,37 @@ class MainActivity : Activity() {
 
         val prefs = getSharedPreferences("RostiPrefs", Context.MODE_PRIVATE)
         val isLoggedIn = prefs.getBoolean("is_logged_in", false)
+
+        // Hilo de autodescubrimiento de IP local por UDP
+        Thread {
+            try {
+                val socket = java.net.DatagramSocket(44444)
+                val buffer = ByteArray(1024)
+                val packet = java.net.DatagramPacket(buffer, buffer.size)
+                while (true) {
+                    socket.receive(packet)
+                    val message = String(packet.data, 0, packet.length)
+                    if (message.startsWith("ROSTI_SERVER:")) {
+                        val senderIP = packet.address.hostAddress
+                        val port = message.split(":")[1].trim()
+                        val autoUrl = "http://$senderIP:$port"
+                        
+                        val isRemote = prefs.getBoolean("use_remote", false)
+                        if (!isRemote) {
+                            val currentUrl = prefs.getString("server_url", "")
+                            if (currentUrl != autoUrl) {
+                                prefs.edit().putString("server_url", autoUrl).apply()
+                                runOnUiThread {
+                                    Toast.makeText(this@MainActivity, "Servidor local detectado: $autoUrl", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
 
         if (isLoggedIn) {
             layoutLogin.visibility = LinearLayout.GONE
@@ -115,21 +150,51 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        // Nuevo botón/lógica para Permisos de Archivos si hace falta
+        val btnFiles = Button(this).apply { text = "Permiso de Archivos" }
+        btnFiles.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (!Environment.isExternalStorageManager()) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        intent.addCategory("android.intent.category.DEFAULT")
+                        intent.data = Uri.parse(String.format("package:%s", applicationContext.packageName))
+                        startActivityForResult(intent, 2000)
+                    } catch (e: Exception) {
+                        val intent = Intent()
+                        intent.action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+                        startActivityForResult(intent, 2000)
+                    }
+                } else {
+                    Toast.makeText(this, "Permiso ya concedido", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE, android.Manifest.permission.READ_EXTERNAL_STORAGE),
+                    2001
+                )
+            }
+        }
+        layoutDashboard.addView(btnFiles)
+
         btnSettings.setOnClickListener {
-            val currentUrl = prefs.getString("server_url", "https://acceso.rosti.cr")
-            val input = EditText(this)
-            input.setText(currentUrl)
+            val isRemote = prefs.getBoolean("use_remote", false)
+            val options = arrayOf("☁️ Servidor Remoto (Nube)", "💻 Servidor Local (Auto-Detección)")
+            val checkedItem = if (isRemote) 0 else 1
             
             AlertDialog.Builder(this)
-                .setTitle("Configurar Servidor")
-                .setMessage("Ingresa la URL o IP del servidor (ej. https://acceso.rosti.cr):")
-                .setView(input)
-                .setPositiveButton("Guardar") { _, _ ->
-                    val newUrl = input.text.toString().trim()
-                    if (newUrl.isNotEmpty()) {
-                        prefs.edit().putString("server_url", newUrl).apply()
-                        Toast.makeText(this, "Servidor actualizado. Reinicia la transmisión si está activa.", Toast.LENGTH_LONG).show()
+                .setTitle("Seleccionar Servidor")
+                .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                    if (which == 0) {
+                        prefs.edit().putBoolean("use_remote", true).apply()
+                        prefs.edit().putString("server_url", "https://acceso.rosti.cr").apply()
+                        Toast.makeText(this, "Modo Nube activado. Reinicia la transmisión.", Toast.LENGTH_LONG).show()
+                    } else {
+                        prefs.edit().putBoolean("use_remote", false).apply()
+                        Toast.makeText(this, "Modo Local activado. Esperando detección...", Toast.LENGTH_LONG).show()
                     }
+                    dialog.dismiss()
                 }
                 .setNegativeButton("Cancelar", null)
                 .show()

@@ -10,31 +10,48 @@ interface Props {
 export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [videoAspect, setVideoAspect] = useState<number | null>(null);
-
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      // Reset aspect ratio until new stream loads metadata
-      setVideoAspect(null);
     }
   }, [stream]);
 
-  const handleMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    if (video.videoHeight > 0) {
-      setVideoAspect(video.videoWidth / video.videoHeight);
-    }
-  };
-
   const handlePointerEvent = (e: React.PointerEvent<HTMLVideoElement>, type: string) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    const video = e.currentTarget;
+    const rect = video.getBoundingClientRect();
     
-    // Coordenadas relativas exactas al contenedor de video, que ahora siempre
-    // encaja perfecto sin franjas negras gracias al CSS aspect-ratio
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+    // Obtener dimensiones reales del video recibido
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
     
+    if (!videoWidth || !videoHeight) return;
+
+    // Calcular la proporción del contenedor y del video
+    const containerRatio = rect.width / rect.height;
+    const videoRatio = videoWidth / videoHeight;
+
+    let actualWidth, actualHeight, startX, startY;
+
+    // Determinar el tamaño y la posición real del video dentro del contenedor (compensar barras negras)
+    if (containerRatio > videoRatio) {
+      // El contenedor es más ancho que el video -> Barras negras a los lados
+      actualHeight = rect.height;
+      actualWidth = actualHeight * videoRatio;
+      startX = (rect.width - actualWidth) / 2;
+      startY = 0;
+    } else {
+      // El contenedor es más alto que el video -> Barras negras arriba y abajo
+      actualWidth = rect.width;
+      actualHeight = actualWidth / videoRatio;
+      startX = 0;
+      startY = (rect.height - actualHeight) / 2;
+    }
+
+    // Calcular las coordenadas X, Y excluyendo las barras negras
+    const x = (e.clientX - rect.left - startX) / actualWidth;
+    const y = (e.clientY - rect.top - startY) / actualHeight;
+    
+    // Asegurarse de que el clic ocurrió DENTRO del área del video, no en las barras negras
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
       onMouseEvent(type, x, y);
     }
@@ -67,14 +84,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent }: Props
           ref={videoRef} 
           autoPlay 
           playsInline
-          onLoadedMetadata={handleMetadata}
-          style={videoAspect ? { 
-            aspectRatio: videoAspect, 
-            maxHeight: '100%', 
-            maxWidth: '100%', 
-            objectFit: 'fill',
-            touchAction: 'none' // Prevenir pull-to-refresh o scrolls nativos
-          } : { opacity: 0 }}
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'contain',
+            touchAction: 'none'
+          }}
           onPointerDown={(e) => handlePointerEvent(e, 'down')}
           onPointerUp={(e) => handlePointerEvent(e, 'up')}
           onPointerMove={(e) => handlePointerEvent(e, 'move')}

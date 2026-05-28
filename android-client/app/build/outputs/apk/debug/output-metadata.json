@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 41,
-      "versionName": "1.0.41",
-      "outputFile": "rostiremoteapk-v1.0.41-debug.apk"
+      "versionCode": 69,
+      "versionName": "1.0.69",
+      "outputFile": "rostiremoteapk-v1.0.69-debug.apk"
     }
   ],
   "elementType": "File",

@@ -20,6 +20,8 @@ class RemoteControlService : Service() {
 
     private var webRTCClient: WebRTCClient? = null
     private var socketClient: SocketClient? = null
+    private var isRemoteDescriptionSet = false
+    private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
     private fun sendStatus(msg: String) {
         Log.d("RemoteControl", msg)
@@ -79,28 +81,48 @@ class RemoteControlService : Service() {
             
             socketClient?.onStatusChange = { msg -> sendStatus(msg) }
             
-            socketClient?.connect(serverUrl, roomId,
+        socketClient?.connect(serverUrl, roomId,
                 onOfferInit = { currentOffer ->
                     Log.d("RemoteControl", "Offer recibido, creando Answer...")
-                    webRTCClient?.peerConnection?.setRemoteDescription(CustomSdpObserver("setRemoteDescription"), SessionDescription(SessionDescription.Type.OFFER, currentOffer.getString("sdp")))
-                    webRTCClient?.peerConnection?.createAnswer(object: SdpObserver {
-                        override fun onCreateSuccess(desc: SessionDescription?) {
-                            desc?.let {
-                                webRTCClient?.peerConnection?.setLocalDescription(CustomSdpObserver("setLocalDescription"), it)
-                                val json = org.json.JSONObject()
-                                json.put("type", it.type.canonicalForm())
-                                json.put("sdp", it.description)
-                                socketClient?.emitAnswer(roomId, json)
+                    isRemoteDescriptionSet = false
+                    pendingIceCandidates.clear()
+                    
+                    webRTCClient?.peerConnection?.setRemoteDescription(object : SdpObserver {
+                        override fun onSetSuccess() {
+                            isRemoteDescriptionSet = true
+                            pendingIceCandidates.forEach { candidate ->
+                                webRTCClient?.peerConnection?.addIceCandidate(candidate)
                             }
+                            pendingIceCandidates.clear()
+                            
+                            webRTCClient?.peerConnection?.createAnswer(object: SdpObserver {
+                                override fun onCreateSuccess(desc: SessionDescription?) {
+                                    desc?.let {
+                                        webRTCClient?.peerConnection?.setLocalDescription(CustomSdpObserver("setLocalDescription"), it)
+                                        val json = org.json.JSONObject()
+                                        json.put("type", it.type.canonicalForm())
+                                        json.put("sdp", it.description)
+                                        socketClient?.emitAnswer(roomId, json)
+                                    }
+                                }
+                                override fun onSetSuccess() {}
+                                override fun onCreateFailure(p0: String?) {}
+                                override fun onSetFailure(p0: String?) {}
+                            }, MediaConstraints())
                         }
-                        override fun onSetSuccess() {}
-                        override fun onCreateFailure(p0: String?) {}
                         override fun onSetFailure(p0: String?) {}
-                    }, MediaConstraints())
+                        override fun onCreateSuccess(p0: SessionDescription?) {}
+                        override fun onCreateFailure(p0: String?) {}
+                    }, SessionDescription(SessionDescription.Type.OFFER, currentOffer.getString("sdp")))
                 },
                 onAnswerInit = { },
                 onIceCandidateInit = { data ->
-                    webRTCClient?.peerConnection?.addIceCandidate(IceCandidate(data.getString("sdpMid"), data.getInt("sdpMLineIndex"), data.getString("candidate")))
+                    val candidate = IceCandidate(data.getString("sdpMid"), data.getInt("sdpMLineIndex"), data.getString("candidate"))
+                    if (isRemoteDescriptionSet) {
+                        webRTCClient?.peerConnection?.addIceCandidate(candidate)
+                    } else {
+                        pendingIceCandidates.add(candidate)
+                    }
                 }
             )
 

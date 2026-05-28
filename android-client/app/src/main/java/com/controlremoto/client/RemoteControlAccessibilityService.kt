@@ -82,9 +82,8 @@ class RemoteControlAccessibilityService : AccessibilityService() {
     }
 
     fun performTap(xPercent: Float, yPercent: Float) {
-        if (screenWidth == 0 || screenHeight == 0) {
-            actualizarResolucionAbsoluta()
-        }
+        // Actualizar la resolución en cada toque para evitar errores si el dispositivo rotó (Landscape/Portrait)
+        actualizarResolucionAbsoluta()
 
         val x = xPercent * screenWidth
         val y = yPercent * screenHeight

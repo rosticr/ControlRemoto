@@ -3,10 +3,87 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const dgram = require('dgram');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Gestión de Usuarios
+const USERS_FILE = path.join(__dirname, 'users.json');
+
+function loadUsers() {
+  if (!fs.existsSync(USERS_FILE)) {
+    // Usuario por defecto
+    const defaultUsers = [{ username: 'admin', password: 'R0st1p017', role: 'admin' }];
+    fs.writeFileSync(USERS_FILE, JSON.stringify(defaultUsers, null, 2));
+    return defaultUsers;
+  }
+  return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+}
+
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+// REST API para Login
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  const users = loadUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+  
+  if (user) {
+    res.json({ success: true, username: user.username, role: user.role });
+  } else {
+    res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+  }
+});
+
+// REST API para CRUD de Usuarios
+app.get('/api/users', (req, res) => {
+  const users = loadUsers();
+  // No devolver las contraseñas reales por seguridad en el listado
+  const safeUsers = users.map(u => ({ username: u.username, role: u.role, passwordLength: u.password.length }));
+  res.json(safeUsers);
+});
+
+app.post('/api/users', (req, res) => {
+  const { username, password, role } = req.body;
+  const users = loadUsers();
+  if (users.find(u => u.username === username)) {
+    return res.status(400).json({ error: 'El usuario ya existe' });
+  }
+  users.push({ username, password, role: role || 'user' });
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+app.put('/api/users/:username', (req, res) => {
+  const { password, role } = req.body;
+  const users = loadUsers();
+  const index = users.findIndex(u => u.username === req.params.username);
+  if (index === -1) return res.status(404).json({ error: 'Usuario no encontrado' });
+  
+  if (password) users[index].password = password;
+  if (role && req.params.username !== 'admin') users[index].role = role; // No permitir quitar admin al admin principal
+  
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+app.delete('/api/users/:username', (req, res) => {
+  if (req.params.username === 'admin') {
+    return res.status(400).json({ error: 'No se puede eliminar al administrador principal' });
+  }
+  const users = loadUsers();
+  const filteredUsers = users.filter(u => u.username !== req.params.username);
+  if (users.length === filteredUsers.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+  
+  saveUsers(filteredUsers);
+  res.json({ success: true });
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -115,8 +192,22 @@ io.on('connection', (socket) => {
   });
 });
 
+// Broadcast por UDP para que Android encuentre el servidor automáticamente
+const udpServer = dgram.createSocket('udp4');
+udpServer.on('listening', () => {
+  udpServer.setBroadcast(true);
+  console.log('UDP Broadcaster activo en puerto 44444');
+  setInterval(() => {
+    const message = Buffer.from('ROSTI_SERVER:3000');
+    udpServer.send(message, 0, message.length, 44444, '255.255.255.255');
+  }, 2000);
+});
+udpServer.bind(() => {
+  udpServer.setBroadcast(true);
+});
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`========================================`);
   console.log(`Servidor de señalización escuchando en puerto ${PORT}`);
   console.log(`Diagnóstico: http://localhost:${PORT}/status`);

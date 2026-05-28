@@ -1,27 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Monitor, FolderUp } from 'lucide-react';
+import { Monitor, FolderUp, LogOut } from 'lucide-react';
 import ConnectionPanel from './components/ConnectionPanel';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
 import Login from './components/Login';
+import UsersManager from './components/UsersManager';
+import { Users } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentServerUrl, setCurrentServerUrl] = useState('https://rosti-server.onrender.com');
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [roomId, setRoomId] = useState('');
-  const [activeTab, setActiveTab] = useState<'screen' | 'files'>('screen');
+  const [activeTab, setActiveTab] = useState<'screen' | 'files' | 'users'>('screen');
+  const [currentUser, setCurrentUser] = useState({ username: '', role: '' });
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [onlineDevices, setOnlineDevices] = useState<string[]>([]);
+  const [fileChannel, setFileChannel] = useState<RTCDataChannel | null>(null);
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const isRemoteDescriptionSetRef = useRef(false);
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      const globalSocket = io('https://rosti-server.onrender.com');
+      const globalSocket = io(currentServerUrl);
       
       globalSocket.on('connect', () => {
         console.log("Conectado al servidor como Administrador");
@@ -85,17 +92,35 @@ function App() {
       if (!peerConnectionRef.current) return;
       try {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+        isRemoteDescriptionSetRef.current = true;
+        
+        // Procesar candidatos encolados
+        for (const candidate of pendingIceCandidatesRef.current) {
+          try {
+            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('Error adding queued ice candidate', e);
+          }
+        }
+        pendingIceCandidatesRef.current = [];
       } catch (err) {
         console.error("Error setting remote description from answer:", err);
       }
     });
 
     socket.on('ice-candidate', async (candidate) => {
+      console.log('Recibido ICE candidate remoto:', JSON.stringify(candidate));
       if (!peerConnectionRef.current) return;
-      try {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.error('Error adding received ice candidate', e);
+      
+      if (isRemoteDescriptionSetRef.current) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error('Error adding received ice candidate', e);
+        }
+      } else {
+        // Encolar candidato si la descripción remota aún no está lista
+        pendingIceCandidatesRef.current.push(candidate);
       }
     });
   };
@@ -105,15 +130,41 @@ function App() {
       peerConnectionRef.current.close();
     }
     
+    isRemoteDescriptionSetRef.current = false;
+    pendingIceCandidatesRef.current = [];
+    
     const configuration = { 
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        {
+          urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80?transport=tcp",
+          username: "93d3531d6cb9d21936c44b01",
+          credential: "1WRQmmSv2+K85BnG",
+        },
+        {
+          urls: "turns:global.relay.metered.ca:443?transport=tcp",
+          username: "93d3531d6cb9d21936c44b01",
+          credential: "1WRQmmSv2+K85BnG",
+        }
       ] 
     };
     const peerConnection = new RTCPeerConnection(configuration);
+    peerConnectionRef.current = peerConnection;
+
+    // Monitor de estado de ICE
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('ICE Connection State:', peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === 'failed') {
+        console.error('La conexión WebRTC falló (posible bloqueo de firewall o TURN server inactivo).');
+      }
+    };
+
+    // Monitor de estado de conexión
+    peerConnection.onconnectionstatechange = () => {
+      console.log('WebRTC Connection State:', peerConnection.connectionState);
+    };
     
     // Explicitly tell the peer connection we want to receive video
     try {
@@ -124,6 +175,7 @@ function App() {
     
     peerConnection.addEventListener('icecandidate', event => {
       if (event.candidate) {
+        console.log('Enviando ICE candidate local:', JSON.stringify(event.candidate));
         socket.emit('ice-candidate', { roomId: room, candidate: event.candidate });
       }
     });
@@ -143,6 +195,15 @@ function App() {
     const controlChannel = peerConnection.createDataChannel('control');
     controlChannel.onopen = () => console.log('Control channel opened');
     dataChannelRef.current = controlChannel;
+
+    // Create a data channel for file transfer
+    const filesChannel = peerConnection.createDataChannel('files');
+    filesChannel.binaryType = 'arraybuffer';
+    filesChannel.onopen = () => {
+      console.log('File channel opened');
+      setFileChannel(filesChannel);
+    };
+    filesChannel.onclose = () => setFileChannel(null);
     
     peerConnectionRef.current = peerConnection;
   };
@@ -157,6 +218,7 @@ function App() {
       peerConnectionRef.current = null;
     }
     dataChannelRef.current = null;
+    setFileChannel(null);
     setIsConnected(false);
     setRemoteStream(null);
   };
@@ -175,8 +237,21 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    disconnect();
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
+    setIsAuthenticated(false);
+  };
+
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+    return <Login onLoginSuccess={(url, username, role) => {
+      setCurrentServerUrl(url);
+      setCurrentUser({ username, role });
+      setIsAuthenticated(true);
+    }} />;
   }
 
   return (
@@ -210,15 +285,59 @@ function App() {
               <FolderUp size={18} style={{ marginBottom: '4px' }} />
               <div>Archivos</div>
             </div>
+            {currentUser.role === 'admin' && (
+              <div 
+                className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+                onClick={() => setActiveTab('users')}
+              >
+                <Users size={18} style={{ marginBottom: '4px' }} />
+                <div>Usuarios</div>
+              </div>
+            )}
           </div>
         )}
+
+        <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+          <button 
+            onClick={handleLogout}
+            style={{
+              width: '100%',
+              background: 'rgba(239, 68, 68, 0.1)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+            }}
+          >
+            <LogOut size={16} />
+            Cerrar Sesión
+          </button>
+        </div>
       </div>
 
       <div className="main-content">
-        {activeTab === 'screen' ? (
+        <div style={{ display: activeTab === 'screen' ? 'block' : 'none', height: '100%' }}>
           <ScreenViewer stream={remoteStream} onMouseEvent={handleMouseEvent} onKeyEvent={handleKeyEvent} />
-        ) : (
-          <FileManager />
+        </div>
+        <div style={{ display: activeTab === 'files' ? 'block' : 'none', height: '100%' }}>
+          <FileManager fileChannel={fileChannel} />
+        </div>
+        {currentUser.role === 'admin' && (
+          <div style={{ display: activeTab === 'users' ? 'block' : 'none', height: '100%' }}>
+            <UsersManager serverUrl={currentServerUrl} />
+          </div>
         )}
       </div>
     </div>

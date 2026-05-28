@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, MonitorSmartphone, Plus, Trash2 } from 'lucide-react';
+import { Wifi, WifiOff, MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder } from 'lucide-react';
 
 interface Props {
   isConnected: boolean;
@@ -23,6 +23,7 @@ export default function ConnectionPanel({ isConnected, isConnecting, onlineDevic
   const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
   const [newGroup, setNewGroup] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   
   // Extraer grupos únicos para el datalist
   const uniqueGroups = Array.from(new Set(savedDevices.map(d => d.group).filter(Boolean))) as string[];
@@ -55,6 +56,13 @@ export default function ConnectionPanel({ isConnected, isConnecting, onlineDevic
     const newList = savedDevices.filter(d => d.id !== id);
     setSavedDevices(newList);
     localStorage.setItem('rosti_saved_devices', JSON.stringify(newList));
+  };
+
+  const toggleGroup = (groupName: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
   };
 
   if (isConnected) {
@@ -110,84 +118,111 @@ export default function ConnectionPanel({ isConnected, isConnecting, onlineDevic
                   acc[group].push(device);
                   return acc;
                 }, {} as Record<string, SavedDevice[]>)
-              ).map(([groupName, devices]) => (
-                <div key={groupName} className="device-group">
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    fontWeight: 'bold', 
-                    color: 'var(--text-muted)', 
-                    textTransform: 'uppercase',
-                    marginBottom: '8px',
-                    paddingBottom: '4px',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)'
-                  }}>
-                    📁 {groupName}
+              ).map(([groupName, devices]) => {
+                const isCollapsed = collapsedGroups[groupName] || false;
+                const onlineCount = devices.filter(d => onlineDevices.includes(d.id)).length;
+                
+                return (
+                <div key={groupName} className="device-group" style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <div 
+                    onClick={() => toggleGroup(groupName)}
+                    style={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      cursor: 'pointer',
+                      borderBottom: isCollapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Folder size={16} color="var(--primary)" />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{groupName}</span>
+                      <span style={{ 
+                        fontSize: '0.7rem', 
+                        background: onlineCount > 0 ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.1)',
+                        color: onlineCount > 0 ? '#4ade80' : 'var(--text-muted)',
+                        padding: '2px 6px',
+                        borderRadius: '12px',
+                        marginLeft: '8px'
+                      }}>
+                        {onlineCount} / {devices.length} activos
+                      </span>
+                    </div>
+                    {isCollapsed ? <ChevronRight size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {devices.map(device => {
-                      const isOnline = onlineDevices.includes(device.id);
-                      return (
-                        <div 
-                          key={device.id}
-                          className="device-item"
-                          onClick={() => onConnect(device.id)}
-                          style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            cursor: isConnecting ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            transition: 'all 0.2s',
-                            opacity: isConnecting ? 0.6 : 1
-                          }}
-                          onMouseEnter={(e) => {
-                            if(!isConnecting) e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                          }}
-                          onMouseLeave={(e) => {
-                            if(!isConnecting) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ position: 'relative' }}>
-                              <MonitorSmartphone size={20} color={isOnline ? '#4ade80' : 'var(--text-muted)'} />
-                              <div style={{
-                                position: 'absolute',
-                                bottom: '-2px',
-                                right: '-2px',
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: isOnline ? '#4ade80' : '#ef4444',
-                                border: '2px solid var(--bg-card)'
-                              }} />
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{device.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{device.id}</div>
-                            </div>
-                          </div>
-                          
-                          <button 
-                            onClick={(e) => removeDevice(device.id, e)}
-                            style={{ 
-                              background: 'transparent', 
-                              padding: '4px', 
-                              minWidth: 'auto',
-                              color: 'var(--text-muted)' 
+                  
+                  {!isCollapsed && (
+                    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {devices.map(device => {
+                        const isOnline = onlineDevices.includes(device.id);
+                        return (
+                          <div 
+                            key={device.id}
+                            className="device-item"
+                            onClick={() => onConnect(device.id)}
+                            style={{
+                              background: 'rgba(255,255,255,0.05)',
+                              padding: '12px',
+                              borderRadius: '8px',
+                              cursor: isConnecting ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              transition: 'all 0.2s',
+                              opacity: isConnecting ? 0.6 : 1
                             }}
-                            title="Eliminar"
+                            onMouseEnter={(e) => {
+                              if(!isConnecting) e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              if(!isConnecting) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                            }}
                           >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ position: 'relative' }}>
+                                <MonitorSmartphone size={20} color={isOnline ? '#4ade80' : 'var(--text-muted)'} />
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: '-2px',
+                                  right: '-2px',
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '50%',
+                                  background: isOnline ? '#4ade80' : '#ef4444',
+                                  border: '2px solid var(--bg-card)'
+                                }} />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{device.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{device.id}</div>
+                              </div>
+                            </div>
+                            
+                            <button 
+                              onClick={(e) => removeDevice(device.id, e)}
+                              style={{ 
+                                background: 'transparent', 
+                                padding: '4px', 
+                                minWidth: 'auto',
+                                color: 'var(--text-muted)' 
+                              }}
+                              title="Eliminar"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
             </div>
           )}
           {isConnecting && (
