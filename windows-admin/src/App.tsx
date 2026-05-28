@@ -221,38 +221,40 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* 1. Nav Sidebar */}
-      <div className="nav-sidebar">
-        <div className="nav-logo">CR</div>
-        
-        <div 
-          className={`nav-item ${activeView === 'devices' ? 'active' : ''}`}
-          onClick={() => setActiveView('devices')}
-        >
-          <Monitor size={22} />
-          <span>Equipos</span>
-        </div>
- 
-        {currentUser.role === 'admin' && (
+      {/* 1. Nav Sidebar - Ocultar si está conectado para maximizar el espacio horizontal */}
+      {!isConnected && (
+        <div className="nav-sidebar">
+          <div className="nav-logo">CR</div>
+          
           <div 
-            className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveView('users')}
+            className={`nav-item ${activeView === 'devices' ? 'active' : ''}`}
+            onClick={() => setActiveView('devices')}
           >
-            <Users size={22} />
-            <span>Usuarios</span>
+            <Monitor size={22} />
+            <span>Equipos</span>
           </div>
-        )}
- 
-        <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
-          <div 
-            className="nav-item" 
-            onClick={handleLogout}
-            style={{ color: '#ef4444' }}
-          >
-            <LogOut size={22} />
+   
+          {currentUser.role === 'admin' && (
+            <div 
+              className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveView('users')}
+            >
+              <Users size={22} />
+              <span>Usuarios</span>
+            </div>
+          )}
+   
+          <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
+            <div 
+              className="nav-item" 
+              onClick={handleLogout}
+              style={{ color: '#ef4444' }}
+            >
+              <LogOut size={22} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
  
       {/* 2 & 3. Main Content based on active view */}
       {activeView === 'devices' && (

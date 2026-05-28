@@ -57,7 +57,10 @@ function saveConfig(newConfig) {
 
 // Native Input Simulator startup
 function startInputSimulator() {
-  const simPath = path.join(__dirname, 'InputSimulator.exe');
+  let simPath = path.join(__dirname, 'InputSimulator.exe');
+  if (simPath.includes('app.asar')) {
+    simPath = simPath.replace('app.asar', 'app.asar.unpacked');
+  }
   if (fs.existsSync(simPath)) {
     console.log("Starting InputSimulator helper from:", simPath);
     inputSimulator = spawn(simPath, [], { stdio: ['pipe', 'pipe', 'pipe'] });
