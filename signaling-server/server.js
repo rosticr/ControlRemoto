@@ -188,35 +188,27 @@ app.delete('/api/users/:username', authenticateToken, (req, res) => {
   res.json({ success: true });
 });
 
-// Configuración de Multer para Carga de APKs
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = path.join(__dirname, 'public', 'versions');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    const version = req.body.version || 'unknown';
-    // Reemplazar espacios y caracteres no seguros
-    const safeVersion = version.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, `app-v${safeVersion}.apk`);
-  }
-});
-
-const upload = multer({ storage: storage });
-
-
+// Configuración de Multer para Carga de APKs (usando carpeta temporal interna)
+const uploadDir = path.join(__dirname, 'public', 'versions');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const upload = multer({ dest: uploadDir });
 
 // Endpoint para subir APK (solo Administradores)
 app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) => {
   if (req.user.role !== 'admin') {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     return res.status(403).json({ error: 'Solo los administradores pueden subir APKs.' });
   }
 
   const { version, notes } = req.body;
   if (!version) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     return res.status(400).json({ error: 'La versión es requerida.' });
   }
 
@@ -224,7 +216,22 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
     return res.status(400).json({ error: 'El archivo APK es requerido.' });
   }
 
-  const filename = req.file.filename;
+  // Generar nombre de archivo final seguro
+  const safeVersion = version.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const filename = `app-v${safeVersion}.apk`;
+  const finalPath = path.join(__dirname, 'public', 'versions', filename);
+
+  try {
+    // Mover y renombrar el archivo temporal al destino definitivo
+    fs.renameSync(req.file.path, finalPath);
+  } catch (err) {
+    console.error("Error al guardar archivo APK definitivo:", err);
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    return res.status(500).json({ error: 'Error al procesar el archivo en el servidor.' });
+  }
+
   const history = loadApkHistory();
   
   // Reemplazar si ya existe la misma versión
@@ -239,7 +246,7 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
   };
 
   if (existingIndex !== -1) {
-    // Eliminar archivo anterior si cambió de nombre
+    // Eliminar archivo anterior si cambió de nombre en la base de datos
     const oldRecord = history[existingIndex];
     if (oldRecord.filename !== filename) {
       const oldPath = path.join(__dirname, 'public', 'versions', oldRecord.filename);
@@ -255,9 +262,8 @@ app.post('/api/upload-apk', authenticateToken, upload.single('apk'), (req, res) 
   saveApkHistory(history);
 
   // Copiar a public/app.apk para descarga directa principal
-  const srcPath = req.file.path;
   const destPath = path.join(__dirname, 'public', 'app.apk');
-  fs.copyFileSync(srcPath, destPath);
+  fs.copyFileSync(finalPath, destPath);
 
   res.json({ success: true, record });
 });

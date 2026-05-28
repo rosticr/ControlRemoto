@@ -714,9 +714,9 @@
             }
 
             const formData = new FormData();
-            formData.append('apk', fileInput.files[0]);
             formData.append('version', versionInput);
             formData.append('notes', notesInput);
+            formData.append('apk', fileInput.files[0]);
 
             const submitBtn = document.getElementById('upload-submit-btn');
             const progressContainer = document.getElementById('upload-progress-container');
