@@ -17,7 +17,17 @@
     "appId": "com.rosti.windowsadmin",
     "productName": "RostiWindowsAdmin",
     "win": {
+      "target": "nsis",
       "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rosti Windows Admin",
+      "runAfterFinish": true
     },
     "files": [
       "dist/**/*",
