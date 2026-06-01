@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X, Pin, ArrowUpDown } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -134,6 +134,17 @@ export default function DeviceManager({
   const [isGroupsLoadedFromServer, setIsGroupsLoadedFromServer] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pinnedGroups, setPinnedGroups] = useState<string[]>(() => {
+    const pinned = localStorage.getItem('rosti_pinned_groups');
+    if (pinned) {
+      try {
+        return JSON.parse(pinned);
+      } catch (e) {
+        console.error("Error parsing pinned groups", e);
+      }
+    }
+    return [];
+  });
   
   // Details View Tab ('services' | 'asset')
   const [detailsTab, setDetailsTab] = useState<'services' | 'asset'>('services');
@@ -475,10 +486,69 @@ export default function DeviceManager({
     syncGroupsWithServer(newGroups);
   };
 
+  const togglePinGroup = (groupName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isCurrentlyPinned = pinnedGroups.includes(groupName);
+    let newPinned: string[];
+    if (isCurrentlyPinned) {
+      newPinned = pinnedGroups.filter(g => g !== groupName);
+    } else {
+      newPinned = [...pinnedGroups, groupName];
+    }
+    setPinnedGroups(newPinned);
+    localStorage.setItem('rosti_pinned_groups', JSON.stringify(newPinned));
+    
+    // Reorder savedGroups: put pinned groups first (maintaining relative order), then unpinned
+    const pinned = savedGroups.filter(g => newPinned.includes(g));
+    const unpinned = savedGroups.filter(g => !newPinned.includes(g));
+    const newGroups = [...pinned, ...unpinned];
+    
+    setSavedGroups(newGroups);
+    localStorage.setItem('rosti_saved_groups', JSON.stringify(newGroups));
+    syncGroupsWithServer(newGroups);
+  };
+
+  const sortGroupsAlphabetically = () => {
+    const unpinned = savedGroups.filter(g => !pinnedGroups.includes(g));
+    unpinned.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    
+    const pinned = savedGroups.filter(g => pinnedGroups.includes(g));
+    const newGroups = [...pinned, ...unpinned];
+    
+    setSavedGroups(newGroups);
+    localStorage.setItem('rosti_saved_groups', JSON.stringify(newGroups));
+    syncGroupsWithServer(newGroups);
+  };
+
   const renderList = () => (
     <div className="list-panel">
       <div className="list-header">
-        <h2>Dispositivos</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Dispositivos</h2>
+          
+          {/* Botón de Orden Alfabético */}
+          <button
+            onClick={sortGroupsAlphabetically}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-main)',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background 0.2s, border-color 0.2s'
+            }}
+            title="Ordenar grupos alfabéticamente (los grupos fijados no se verán afectados)"
+            className="hover-bright"
+          >
+            <ArrowUpDown size={14} />
+            <span>A-Z</span>
+          </button>
+        </div>
         
         {/* Barra de búsqueda */}
         <div style={{ position: 'relative', marginTop: '12px' }}>
@@ -698,7 +768,24 @@ export default function DeviceManager({
                         </span>
 
                         {!searchTerm && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginRight: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
+                            {/* Botón de fijar grupo */}
+                            <button
+                              onClick={(e) => togglePinGroup(groupName, e)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: pinnedGroups.includes(groupName) ? 'var(--accent)' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title={pinnedGroups.includes(groupName) ? "Desfijar Grupo" : "Fijar Grupo"}
+                            >
+                              <Pin size={13} style={{ transform: pinnedGroups.includes(groupName) ? 'none' : 'rotate(45deg)', transition: 'transform 0.2s' }} />
+                            </button>
+
                             <button
                               onClick={(e) => moveGroup(groupName, 'up', e)}
                               disabled={savedGroups.indexOf(groupName) === 0}
