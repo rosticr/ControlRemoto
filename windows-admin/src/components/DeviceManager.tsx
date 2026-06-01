@@ -98,12 +98,50 @@ export default function DeviceManager({
     }
   }, [selectedDevice]);
 
-  // Auto-merge specs from online details
+  // Auto-merge specs and auto-register new online devices
   useEffect(() => {
-    if (!onlineDevicesDetails || onlineDevicesDetails.length === 0 || savedDevices.length === 0) return;
+    if (!onlineDevicesDetails || onlineDevicesDetails.length === 0) return;
     
     let hasChanges = false;
-    const updated = savedDevices.map(d => {
+    let updatedDevices = [...savedDevices];
+    let newGroupsAdded: string[] = [];
+
+    // 1. Check for new online devices that are not in savedDevices
+    onlineDevicesDetails.forEach(o => {
+      // Ignore admin connections
+      if (!o.isWindows && !o.isAndroid) return;
+      
+      const alreadySaved = updatedDevices.some(d => d.id === o.roomId);
+      if (!alreadySaved) {
+        hasChanges = true;
+        const nameVal = (o.specs && o.specs.name) || o.roomId;
+        const groupVal = (o.specs && o.specs.group) || 'Sin Grupo';
+        
+        // Add group to savedGroups if it is not there
+        if (groupVal && groupVal !== 'Sin Grupo' && !savedGroups.includes(groupVal) && !newGroupsAdded.includes(groupVal)) {
+          newGroupsAdded.push(groupVal);
+        }
+
+        updatedDevices.push({
+          id: o.roomId,
+          name: nameVal,
+          group: groupVal,
+          platform: o.isWindows ? 'windows' : 'android',
+          marca: o.specs?.marca || undefined,
+          modelo: o.specs?.modelo || undefined,
+          serie: o.specs?.serie || undefined,
+          disco: o.specs?.disco || undefined,
+          so: o.specs?.so || undefined,
+          procesador: o.specs?.cpu || undefined,
+          ram: o.specs?.ram || undefined,
+          estado: 'Activo',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    // 2. Update existing devices with new specs
+    updatedDevices = updatedDevices.map(d => {
       const onlineDev = onlineDevicesDetails.find(o => o.roomId === d.id);
       if (onlineDev && onlineDev.specs) {
         const specs = onlineDev.specs;
@@ -114,11 +152,15 @@ export default function DeviceManager({
           d.disco !== specs.disco ||
           d.so !== specs.so ||
           d.procesador !== specs.cpu ||
-          d.ram !== specs.ram
+          d.ram !== specs.ram ||
+          (specs.name && d.name !== specs.name) ||
+          (specs.group && d.group !== specs.group)
         ) {
           hasChanges = true;
           return {
             ...d,
+            name: specs.name || d.name,
+            group: specs.group || d.group,
             marca: d.marca || specs.marca,
             modelo: d.modelo || specs.modelo,
             serie: d.serie || specs.serie,
@@ -134,18 +176,26 @@ export default function DeviceManager({
     });
 
     if (hasChanges) {
-      setSavedDevices(updated);
-      localStorage.setItem('rosti_saved_devices', JSON.stringify(updated));
+      setSavedDevices(updatedDevices);
+      localStorage.setItem('rosti_saved_devices', JSON.stringify(updatedDevices));
       
+      // Update new groups if any
+      if (newGroupsAdded.length > 0) {
+        const updatedGroups = [...savedGroups, ...newGroupsAdded];
+        setSavedGroups(updatedGroups);
+        localStorage.setItem('rosti_saved_groups', JSON.stringify(updatedGroups));
+        syncGroupsWithServer(updatedGroups);
+      }
+
       // Update selected device if it was updated
       if (selectedDevice) {
-        const currentUpdated = updated.find(d => d.id === selectedDevice.id);
+        const currentUpdated = updatedDevices.find(d => d.id === selectedDevice.id);
         if (currentUpdated) {
           setSelectedDevice(currentUpdated);
         }
       }
     }
-  }, [onlineDevicesDetails, savedDevices, selectedDevice]);
+  }, [onlineDevicesDetails, savedDevices, savedGroups, selectedDevice]);
 
   // Save modified asset details
   const saveAssetDetails = () => {
