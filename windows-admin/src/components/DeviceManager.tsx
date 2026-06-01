@@ -42,6 +42,36 @@ interface SavedDevice {
   updatedAt?: string;
 }
 
+const DEFAULT_ORGANIZATION_GROUPS = [
+  "Sin Grupo",
+  "Oficinas",
+  "Sabana",
+  "Alajuela Aeropuerto",
+  "City Mall",
+  "Real Alajuela",
+  "Praktico",
+  "Heredia",
+  "Oxigeno",
+  "San Francisco",
+  "Ventanitas",
+  "San Jose",
+  "Coronado",
+  "Multi Escazu",
+  "Multi Este",
+  "Curridabat",
+  "Pinares",
+  "Escazu",
+  "Santa Ana",
+  "Cartago",
+  "Desamparados",
+  "Lincoln",
+  "Tibas",
+  "Terramall",
+  "Multicentro",
+  "Servidores-Restaurantes",
+  "Servidores-Oficinas"
+];
+
 export default function DeviceManager({ 
   isConnected, 
   isConnecting, 
@@ -63,6 +93,7 @@ export default function DeviceManager({
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
   const [savedDevices, setSavedDevices] = useState<SavedDevice[]>([]);
   const [savedGroups, setSavedGroups] = useState<string[]>([]);
+  const [isGroupsLoadedFromServer, setIsGroupsLoadedFromServer] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   
   // Details View Tab ('services' | 'asset')
@@ -117,8 +148,8 @@ export default function DeviceManager({
         const nameVal = (o.specs && o.specs.name) || o.roomId;
         const groupVal = (o.specs && o.specs.group) || 'Sin Grupo';
         
-        // Add group to savedGroups if it is not there
-        if (groupVal && groupVal !== 'Sin Grupo' && !savedGroups.includes(groupVal) && !newGroupsAdded.includes(groupVal)) {
+        // Add group to savedGroups if it is not there (only if groups have been loaded from server)
+        if (isGroupsLoadedFromServer && groupVal && groupVal !== 'Sin Grupo' && !savedGroups.includes(groupVal) && !newGroupsAdded.includes(groupVal)) {
           newGroupsAdded.push(groupVal);
         }
 
@@ -195,7 +226,7 @@ export default function DeviceManager({
         }
       }
     }
-  }, [onlineDevicesDetails, savedDevices, savedGroups, selectedDevice]);
+  }, [onlineDevicesDetails, savedDevices, savedGroups, selectedDevice, isGroupsLoadedFromServer]);
 
   // Save modified asset details
   const saveAssetDetails = () => {
@@ -263,20 +294,26 @@ export default function DeviceManager({
     }
 
     const savedGrs = localStorage.getItem('rosti_saved_groups');
+    let initialGrs: string[] = [];
     if (savedGrs) {
       try {
-        setSavedGroups(JSON.parse(savedGrs));
+        initialGrs = JSON.parse(savedGrs);
       } catch (e) {
         console.error("Error parsing saved groups", e);
       }
-    } else {
+    }
+    
+    if (initialGrs.length === 0) {
       // Migrate from existing devices if they have groups
       const existingGroups = Array.from(new Set(devicesList.map(d => d.group).filter(Boolean))) as string[];
       if (existingGroups.length > 0) {
-        setSavedGroups(existingGroups);
-        localStorage.setItem('rosti_saved_groups', JSON.stringify(existingGroups));
+        initialGrs = existingGroups;
+      } else {
+        initialGrs = DEFAULT_ORGANIZATION_GROUPS;
       }
+      localStorage.setItem('rosti_saved_groups', JSON.stringify(initialGrs));
     }
+    setSavedGroups(initialGrs);
 
     // Sync from server on mount (Merge with local groups)
     if (serverUrl) {
@@ -303,15 +340,20 @@ export default function DeviceManager({
             
             setSavedGroups(mergedGroups);
             localStorage.setItem('rosti_saved_groups', JSON.stringify(mergedGroups));
+            setIsGroupsLoadedFromServer(true);
             
             // If the server lacks any of our local groups, sync back to server
             const needsSync = mergedGroups.some(g => !serverGroups.includes(g));
-            if (needsSync) {
+            if (needsSync && token) {
               syncGroupsWithServer(mergedGroups);
             }
           }
         })
-        .catch(err => console.error("Error fetching groups from server on mount:", err));
+        .catch(err => {
+          console.error("Error fetching groups from server on mount:", err);
+          // If fetch fails, we still consider the initial load done so user can work
+          setIsGroupsLoadedFromServer(true);
+        });
     }
   }, [serverUrl, token]);
 
