@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2 } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -8,6 +8,7 @@ interface Props {
   isConnected: boolean;
   isConnecting: boolean;
   onlineDevices: string[];
+  onlineDevicesDetails?: any[];
   connectedRoomId: string;
   remoteStream: MediaStream | null;
   fileChannel: RTCDataChannel | null;
@@ -26,12 +27,26 @@ interface SavedDevice {
   name: string;
   group?: string;
   platform?: 'android' | 'windows';
+  // Asset parameters
+  placa?: string;
+  marca?: string;
+  modelo?: string;
+  serie?: string;
+  disco?: string;
+  so?: string;
+  procesador?: string;
+  ram?: string;
+  responsable?: string;
+  notas?: string;
+  estado?: 'Activo' | 'En Bodega' | 'Mantenimiento' | 'Dado de Baja';
+  updatedAt?: string;
 }
 
 export default function DeviceManager({ 
   isConnected, 
   isConnecting, 
   onlineDevices, 
+  onlineDevicesDetails = [],
   connectedRoomId,
   remoteStream,
   fileChannel,
@@ -49,6 +64,113 @@ export default function DeviceManager({
   const [savedDevices, setSavedDevices] = useState<SavedDevice[]>([]);
   const [savedGroups, setSavedGroups] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
+  
+  // Details View Tab ('services' | 'asset')
+  const [detailsTab, setDetailsTab] = useState<'services' | 'asset'>('services');
+
+  // Asset Details Edit Form States
+  const [editPlaca, setEditPlaca] = useState('');
+  const [editResponsable, setEditResponsable] = useState('');
+  const [editNotas, setEditNotas] = useState('');
+  const [editEstado, setEditEstado] = useState<'Activo' | 'En Bodega' | 'Mantenimiento' | 'Dado de Baja'>('Activo');
+  const [editMarca, setEditMarca] = useState('');
+  const [editModelo, setEditModelo] = useState('');
+  const [editSerie, setEditSerie] = useState('');
+  const [editDisco, setEditDisco] = useState('');
+  const [editRAM, setEditRAM] = useState('');
+  const [editCPU, setEditCPU] = useState('');
+  const [editSO, setEditSO] = useState('');
+
+  // Populate edit states when selectedDevice changes
+  useEffect(() => {
+    if (selectedDevice) {
+      setEditPlaca(selectedDevice.placa || '');
+      setEditResponsable(selectedDevice.responsable || '');
+      setEditNotas(selectedDevice.notas || '');
+      setEditEstado(selectedDevice.estado || 'Activo');
+      setEditMarca(selectedDevice.marca || '');
+      setEditModelo(selectedDevice.modelo || '');
+      setEditSerie(selectedDevice.serie || '');
+      setEditDisco(selectedDevice.disco || '');
+      setEditRAM(selectedDevice.ram || '');
+      setEditCPU(selectedDevice.procesador || '');
+      setEditSO(selectedDevice.so || '');
+    }
+  }, [selectedDevice]);
+
+  // Auto-merge specs from online details
+  useEffect(() => {
+    if (!onlineDevicesDetails || onlineDevicesDetails.length === 0 || savedDevices.length === 0) return;
+    
+    let hasChanges = false;
+    const updated = savedDevices.map(d => {
+      const onlineDev = onlineDevicesDetails.find(o => o.roomId === d.id);
+      if (onlineDev && onlineDev.specs) {
+        const specs = onlineDev.specs;
+        if (
+          d.marca !== specs.marca ||
+          d.modelo !== specs.modelo ||
+          d.serie !== specs.serie ||
+          d.disco !== specs.disco ||
+          d.so !== specs.so ||
+          d.procesador !== specs.cpu ||
+          d.ram !== specs.ram
+        ) {
+          hasChanges = true;
+          return {
+            ...d,
+            marca: d.marca || specs.marca,
+            modelo: d.modelo || specs.modelo,
+            serie: d.serie || specs.serie,
+            disco: d.disco || specs.disco,
+            so: d.so || specs.so,
+            procesador: d.procesador || specs.cpu,
+            ram: d.ram || specs.ram,
+            updatedAt: new Date().toISOString()
+          };
+        }
+      }
+      return d;
+    });
+
+    if (hasChanges) {
+      setSavedDevices(updated);
+      localStorage.setItem('rosti_saved_devices', JSON.stringify(updated));
+      
+      // Update selected device if it was updated
+      if (selectedDevice) {
+        const currentUpdated = updated.find(d => d.id === selectedDevice.id);
+        if (currentUpdated) {
+          setSelectedDevice(currentUpdated);
+        }
+      }
+    }
+  }, [onlineDevicesDetails, savedDevices, selectedDevice]);
+
+  // Save modified asset details
+  const saveAssetDetails = () => {
+    if (!selectedDevice) return;
+    const updatedDev = {
+      ...selectedDevice,
+      placa: editPlaca.trim(),
+      responsable: editResponsable.trim(),
+      notas: editNotas.trim(),
+      estado: editEstado,
+      marca: editMarca.trim(),
+      modelo: editModelo.trim(),
+      serie: editSerie.trim(),
+      disco: editDisco.trim(),
+      ram: editRAM.trim(),
+      procesador: editCPU.trim(),
+      so: editSO.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    const newList = savedDevices.map(d => d.id === selectedDevice.id ? updatedDev : d);
+    setSavedDevices(newList);
+    localStorage.setItem('rosti_saved_devices', JSON.stringify(newList));
+    setSelectedDevice(updatedDev);
+  };
   
   // Form for new device & group
   const [newId, setNewId] = useState('');
@@ -772,48 +894,240 @@ export default function DeviceManager({
             </button>
           </div>
 
-          <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
-
-          <div className="action-grid">
+          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border)', marginBottom: '24px', marginTop: '24px' }}>
             <div 
-              className={`action-card ${isOnline && !isConnecting ? 'primary' : ''}`}
-              onClick={() => {
-                if (isOnline && !isConnecting) {
-                  setActiveTool('screen');
-                  if (!isThisConnected) onConnectScreen(selectedDevice.id);
-                }
+              onClick={() => setDetailsTab('services')}
+              style={{
+                paddingBottom: '10px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                color: detailsTab === 'services' ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: detailsTab === 'services' ? '2px solid var(--accent)' : 'none',
+                transition: 'all 0.2s'
               }}
-              style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
             >
-              <div className="action-icon">
-                <Monitor size={24} />
-              </div>
-              <div>
-                <h3>Control Remoto</h3>
-                <p>Inicia una conexión de video segura. Podrás ver la pantalla del dispositivo y controlarlo remotamente.</p>
-              </div>
-              {isConnecting && <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Conectando...</div>}
+              Conexión y Soporte
             </div>
-
             <div 
-              className="action-card"
-              onClick={() => {
-                if (isOnline && !isConnecting) {
-                  setActiveTool('files');
-                  if (!isThisConnected) onConnectFiles(selectedDevice.id);
-                }
+              onClick={() => setDetailsTab('asset')}
+              style={{
+                paddingBottom: '10px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                color: detailsTab === 'asset' ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: detailsTab === 'asset' ? '2px solid var(--accent)' : 'none',
+                transition: 'all 0.2s'
               }}
-              style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
             >
-              <div className="action-icon">
-                <FolderUp size={24} />
-              </div>
-              <div>
-                <h3>Transferencia de Archivos</h3>
-                <p>Explora el sistema de archivos del dispositivo. Sube o descarga documentos de forma bidireccional.</p>
-              </div>
+              Ficha de Activo (Inventario)
             </div>
           </div>
+
+          {detailsTab === 'services' ? (
+            <>
+              <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
+
+              <div className="action-grid">
+                <div 
+                  className={`action-card ${isOnline && !isConnecting ? 'primary' : ''}`}
+                  onClick={() => {
+                    if (isOnline && !isConnecting) {
+                      setActiveTool('screen');
+                      if (!isThisConnected) onConnectScreen(selectedDevice.id);
+                    }
+                  }}
+                  style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
+                >
+                  <div className="action-icon">
+                    <Monitor size={24} />
+                  </div>
+                  <div>
+                    <h3>Control Remoto</h3>
+                    <p>Inicia una conexión de video segura. Podrás ver la pantalla del dispositivo y controlarlo remotamente.</p>
+                  </div>
+                  {isConnecting && <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Conectando...</div>}
+                </div>
+
+                <div 
+                  className="action-card"
+                  onClick={() => {
+                    if (isOnline && !isConnecting) {
+                      setActiveTool('files');
+                      if (!isThisConnected) onConnectFiles(selectedDevice.id);
+                    }
+                  }}
+                  style={{ opacity: isOnline ? 1 : 0.5, cursor: isOnline ? 'pointer' : 'not-allowed' }}
+                >
+                  <div className="action-icon">
+                    <FolderUp size={24} />
+                  </div>
+                  <div>
+                    <h3>Transferencia de Archivos</h3>
+                    <p>Explora el sistema de archivos del dispositivo. Sube o descarga documentos de forma bidireccional.</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                
+                {/* Form fields section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 10px 0', borderBottom: '1px solid var(--border)', paddingBottom: '6px', color: 'var(--accent)' }}>Campos Personalizados (Inventario)</h4>
+                  
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Placa de Activo</label>
+                    <input 
+                      type="text" 
+                      value={editPlaca} 
+                      onChange={(e) => setEditPlaca(e.target.value)} 
+                      placeholder="ej. ACT-2026-0041" 
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Usuario Responsable</label>
+                    <input 
+                      type="text" 
+                      value={editResponsable} 
+                      onChange={(e) => setEditResponsable(e.target.value)} 
+                      placeholder="ej. Ing. Carlos González" 
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Estado del Activo</label>
+                    <select
+                      value={editEstado}
+                      onChange={(e) => setEditEstado(e.target.value as any)}
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="Activo">Activo</option>
+                      <option value="En Bodega">En Bodega</option>
+                      <option value="Mantenimiento">Mantenimiento (Soporte)</option>
+                      <option value="Dado de Baja">Dado de Baja</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Notas / Ubicación detallada</label>
+                    <textarea 
+                      value={editNotas} 
+                      onChange={(e) => setEditNotas(e.target.value)} 
+                      placeholder="Ubicación física, accesorios adicionales, etc." 
+                      rows={3}
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tech specifications (auto-detected specs) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '6px', marginBottom: '10px' }}>
+                    <h4 style={{ margin: 0, color: 'var(--accent)' }}>Ficha Técnica</h4>
+                    {selectedDevice.updatedAt && (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sinc: {new Date(selectedDevice.updatedAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Marca</span>
+                      <input 
+                        type="text" 
+                        value={editMarca} 
+                        onChange={(e) => setEditMarca(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Modelo</span>
+                      <input 
+                        type="text" 
+                        value={editModelo} 
+                        onChange={(e) => setEditModelo(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Número de Serie</span>
+                      <input 
+                        type="text" 
+                        value={editSerie} 
+                        onChange={(e) => setEditSerie(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none', fontFamily: 'monospace' }}
+                      />
+                    </div>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Disco Principal</span>
+                      <input 
+                        type="text" 
+                        value={editDisco} 
+                        onChange={(e) => setEditDisco(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Memoria RAM</span>
+                      <input 
+                        type="text" 
+                        value={editRAM} 
+                        onChange={(e) => setEditRAM(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Procesador (CPU)</span>
+                      <input 
+                        type="text" 
+                        value={editCPU} 
+                        onChange={(e) => setEditCPU(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sistema Operativo</span>
+                      <input 
+                        type="text" 
+                        value={editSO} 
+                        onChange={(e) => setEditSO(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                <button
+                  onClick={saveAssetDetails}
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  className="hover-bright"
+                >
+                  <CheckCircle2 size={16} /> Guardar Ficha de Activo
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

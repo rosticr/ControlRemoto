@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Monitor, Users, LogOut, ChevronLeft } from 'lucide-react';
+import { Monitor, Users, LogOut, ChevronLeft, ClipboardList } from 'lucide-react';
 import DeviceManager from './components/DeviceManager';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
 import Login from './components/Login';
 import UsersManager from './components/UsersManager';
+import AssetReport from './components/AssetReport';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -16,7 +17,8 @@ function App() {
   const [roomId, setRoomId] = useState('');
   
   // New Navigation State
-  const [activeView, setActiveView] = useState<'devices' | 'users'>('devices');
+  const [activeView, setActiveView] = useState<'devices' | 'users' | 'assets'>('devices');
+  const [onlineDevicesDetails, setOnlineDevicesDetails] = useState<any[]>([]);
   
   const [currentUser, setCurrentUser] = useState({ username: '', role: '', token: '' });
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -43,8 +45,10 @@ function App() {
       });
       
       globalSocket.on('devices-update', (devices: any[]) => {
-        const clientIds = devices.filter((d: any) => d.isAndroid || d.isWindows).map((d: any) => d.roomId);
+        const clients = devices.filter((d: any) => d.isAndroid || d.isWindows);
+        const clientIds = clients.map((d: any) => d.roomId);
         setOnlineDevices(clientIds);
+        setOnlineDevicesDetails(clients);
       });
       
       setSocket(globalSocket);
@@ -235,13 +239,22 @@ function App() {
           </div>
    
           {currentUser.role === 'admin' && (
-            <div 
-              className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveView('users')}
-            >
-              <Users size={22} />
-              <span>Usuarios</span>
-            </div>
+            <>
+              <div 
+                className={`nav-item ${activeView === 'users' ? 'active' : ''}`}
+                onClick={() => setActiveView('users')}
+              >
+                <Users size={22} />
+                <span>Usuarios</span>
+              </div>
+              <div 
+                className={`nav-item ${activeView === 'assets' ? 'active' : ''}`}
+                onClick={() => setActiveView('assets')}
+              >
+                <ClipboardList size={22} />
+                <span>Activos</span>
+              </div>
+            </>
           )}
    
           <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
@@ -262,6 +275,7 @@ function App() {
           isConnected={isConnected}
           isConnecting={isConnecting}
           onlineDevices={onlineDevices}
+          onlineDevicesDetails={onlineDevicesDetails}
           connectedRoomId={roomId}
           remoteStream={remoteStream}
           fileChannel={fileChannel}
@@ -279,6 +293,15 @@ function App() {
       {activeView === 'users' && currentUser.role === 'admin' && (
         <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
           <UsersManager serverUrl={currentServerUrl} token={currentUser.token} />
+        </div>
+      )}
+
+      {activeView === 'assets' && currentUser.role === 'admin' && (
+        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+          <AssetReport 
+            onlineDevicesDetails={onlineDevicesDetails} 
+            onBackToDevices={() => setActiveView('devices')} 
+          />
         </div>
       )}
     </div>

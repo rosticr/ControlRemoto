@@ -468,8 +468,8 @@ io.on('connection', (socket) => {
   });
 
   // Registro de dispositivo (Android o Windows)
-  socket.on('register-device', (deviceId) => {
-    console.log(`[${ts()}] REGISTER-DEVICE: socket=${socket.id} deviceId=${deviceId}`);
+  socket.on('register-device', (deviceId, specs) => {
+    console.log(`[${ts()}] REGISTER-DEVICE: socket=${socket.id} deviceId=${deviceId} specs=${JSON.stringify(specs)}`);
     const isWin = deviceId.startsWith('win-');
     const isAndroid = !isWin;
     
@@ -490,7 +490,8 @@ io.on('connection', (socket) => {
       status: isWin ? 'windows-online' : 'android-online',
       connectedAt: new Date().toISOString(),
       isAndroid: isAndroid,
-      isWindows: isWin
+      isWindows: isWin,
+      specs: specs || null
     });
     const onlineIds = Array.from(connectedDevices.values())
       .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);

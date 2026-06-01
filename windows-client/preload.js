@@ -3,8 +3,93 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const io = require('socket.io-client');
+const { exec } = require('child_process');
 
 let socket = null;
+
+function getSystemSpecs(callback) {
+  if (process.platform !== 'win32') {
+    callback({
+      marca: 'Generic',
+      modelo: 'Generic Platform',
+      serie: 'N/A',
+      disco: 'N/A',
+      so: process.platform,
+      cpu: 'Generic CPU',
+      ram: 'N/A'
+    });
+    return;
+  }
+
+  const psScript = `
+$sys = Get-CimInstance Win32_ComputerSystem
+$bios = Get-CimInstance Win32_BIOS
+$os = Get-CimInstance Win32_OperatingSystem
+$disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+$cpu = (Get-CimInstance Win32_Processor).Name
+$ram = [Math]::Round($sys.TotalPhysicalMemory / 1GB)
+$diskSize = [Math]::Round($disk.Size / 1GB)
+
+$specs = @{
+  marca = $sys.Manufacturer.Trim()
+  modelo = $sys.Model.Trim()
+  serie = $bios.SerialNumber.Trim()
+  so = $os.Caption.Trim()
+  disco = "$diskSize GB"
+  cpu = $cpu.Trim()
+  ram = "$ram GB"
+}
+$specs | ConvertTo-Json
+  `;
+
+  const tempDir = os.tmpdir();
+  const tempFile = path.join(tempDir, 'rosti_specs_query.ps1');
+  try {
+    fs.writeFileSync(tempFile, psScript, 'utf8');
+    exec(`powershell -ExecutionPolicy Bypass -File "${tempFile}"`, (err, stdout, stderr) => {
+      try { fs.unlinkSync(tempFile); } catch(e) {}
+      if (err) {
+        console.error("Failed to query system specs:", err);
+        callback({
+          marca: 'Generic Brand',
+          modelo: 'Generic Model',
+          serie: 'N/A',
+          disco: 'N/A',
+          so: 'Windows',
+          cpu: 'N/A',
+          ram: 'N/A'
+        });
+        return;
+      }
+      try {
+        const specs = JSON.parse(stdout);
+        callback(specs);
+      } catch (parseErr) {
+        console.error("Failed to parse system specs:", parseErr);
+        callback({
+          marca: 'Generic Brand',
+          modelo: 'Generic Model',
+          serie: 'N/A',
+          disco: 'N/A',
+          so: 'Windows',
+          cpu: 'N/A',
+          ram: 'N/A'
+        });
+      }
+    });
+  } catch (writeErr) {
+    console.error("Failed to write temp specs file:", writeErr);
+    callback({
+      marca: 'Generic Brand',
+      modelo: 'Generic Model',
+      serie: 'N/A',
+      disco: 'N/A',
+      so: 'Windows',
+      cpu: 'N/A',
+      ram: 'N/A'
+    });
+  }
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Input simulation forwarding
@@ -36,7 +121,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     socket.on('connect', () => {
       window.dispatchEvent(new CustomEvent('socket-connected'));
-      socket.emit('register-device', deviceId);
+      getSystemSpecs((specs) => {
+        socket.emit('register-device', deviceId, specs);
+      });
     });
 
     socket.on('connect_error', (err) => {
