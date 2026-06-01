@@ -100,6 +100,7 @@ export default function DeviceManager({
   const [detailsTab, setDetailsTab] = useState<'services' | 'asset'>('services');
 
   // Asset Details Edit Form States
+  const [editName, setEditName] = useState('');
   const [editPlaca, setEditPlaca] = useState('');
   const [editResponsable, setEditResponsable] = useState('');
   const [editNotas, setEditNotas] = useState('');
@@ -115,9 +116,10 @@ export default function DeviceManager({
   // Populate edit states when selectedDevice changes
   useEffect(() => {
     if (selectedDevice) {
+      setEditName(selectedDevice.name || '');
       setEditPlaca(selectedDevice.placa || '');
       setEditResponsable(selectedDevice.responsable || '');
-      setEditNotas(selectedDevice.notas || '');
+      setEditNotas(selectedDevice.notes || selectedDevice.notas || ''); // Support notes fallback
       setEditEstado(selectedDevice.estado || 'Activo');
       setEditMarca(selectedDevice.marca || '');
       setEditModelo(selectedDevice.modelo || '');
@@ -171,7 +173,7 @@ export default function DeviceManager({
       }
     });
 
-    // 2. Update existing devices with new specs
+    // 2. Update existing devices with new specs (hardware only, preservation of custom names/groups)
     updatedDevices = updatedDevices.map(d => {
       const onlineDev = onlineDevicesDetails.find(o => o.roomId === d.id);
       if (onlineDev && onlineDev.specs) {
@@ -183,15 +185,11 @@ export default function DeviceManager({
           d.disco !== specs.disco ||
           d.so !== specs.so ||
           d.procesador !== specs.cpu ||
-          d.ram !== specs.ram ||
-          (specs.name && d.name !== specs.name) ||
-          (specs.group && d.group !== specs.group)
+          d.ram !== specs.ram
         ) {
           hasChanges = true;
           return {
             ...d,
-            name: specs.name || d.name,
-            group: specs.group || d.group,
             marca: d.marca || specs.marca,
             modelo: d.modelo || specs.modelo,
             serie: d.serie || specs.serie,
@@ -233,6 +231,7 @@ export default function DeviceManager({
     if (!selectedDevice) return;
     const updatedDev = {
       ...selectedDevice,
+      name: editName.trim() || selectedDevice.name,
       placa: editPlaca.trim(),
       responsable: editResponsable.trim(),
       notas: editNotas.trim(),
@@ -1093,6 +1092,17 @@ export default function DeviceManager({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
                   <h4 style={{ margin: '0 0 10px 0', borderBottom: '1px solid var(--border)', paddingBottom: '6px', color: 'var(--accent)' }}>Campos Personalizados (Inventario)</h4>
                   
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Nombre del Equipo</label>
+                    <input 
+                      type="text" 
+                      value={editName} 
+                      onChange={(e) => setEditName(e.target.value)} 
+                      placeholder="ej. Alajuela-Servidor" 
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                  </div>
+
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Placa de Activo</label>
                     <input 
