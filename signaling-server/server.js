@@ -49,8 +49,36 @@ const GROUPS_FILE = path.join(PERSIST_DIR, 'groups.json');
 
 function loadGroups() {
   if (!fs.existsSync(GROUPS_FILE)) {
-    // Por defecto, iniciamos con un grupo vacío o por defecto
-    const defaultGroups = ['Sin Grupo'];
+    // Por defecto, iniciamos con la lista precargada de grupos de la organización
+    const defaultGroups = [
+      "Sin Grupo",
+      "Oficinas",
+      "Sabana",
+      "Alajuela Aeropuerto",
+      "City Mall",
+      "Real Alajuela",
+      "Praktico",
+      "Heredia",
+      "Oxigeno",
+      "San Francisco",
+      "Ventanitas",
+      "San Jose",
+      "Coronado",
+      "Multi Escazu",
+      "Multi Este",
+      "Curridabat",
+      "Pinares",
+      "Escazu",
+      "Santa Ana",
+      "Cartago",
+      "Desamparados",
+      "Lincoln",
+      "Tibas",
+      "Terramall",
+      "Multicentro",
+      "Servidores-Restaurantes",
+      "Servidores-Oficinas"
+    ];
     fs.writeFileSync(GROUPS_FILE, JSON.stringify(defaultGroups, null, 2));
     return defaultGroups;
   }
