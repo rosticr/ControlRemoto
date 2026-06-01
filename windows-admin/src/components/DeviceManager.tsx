@@ -26,7 +26,7 @@ interface SavedDevice {
   id: string;
   name: string;
   group?: string;
-  platform?: 'android' | 'windows';
+  platform?: 'android' | 'windows' | 'manual';
   // Asset parameters
   placa?: string;
   marca?: string;
@@ -176,7 +176,7 @@ export default function DeviceManager({
   const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
   const [newGroup, setNewGroup] = useState('');
-  const [newPlatform, setNewPlatform] = useState<'android' | 'windows'>('android');
+  const [newPlatform, setNewPlatform] = useState<'android' | 'windows' | 'manual'>('android');
   const [newGroupName, setNewGroupName] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -431,10 +431,10 @@ export default function DeviceManager({
                 onChange={(e) => setNewId(e.target.value)}
               />
               
-              <label style={{ marginTop: '8px' }}>Plataforma</label>
+              <label style={{ marginTop: '8px' }}>Plataforma / Tipo de Activo</label>
               <select
                 value={newPlatform}
-                onChange={(e) => setNewPlatform(e.target.value as 'android' | 'windows')}
+                onChange={(e) => setNewPlatform(e.target.value as any)}
                 style={{
                   background: 'rgba(0, 0, 0, 0.2)',
                   border: '1px solid var(--border)',
@@ -446,8 +446,9 @@ export default function DeviceManager({
                   cursor: 'pointer'
                 }}
               >
-                <option value="android">Android</option>
-                <option value="windows">Windows</option>
+                <option value="windows">Windows (Control Remoto)</option>
+                <option value="android">Android (Control Remoto)</option>
+                <option value="manual">Activo Pasivo (Sin Control Remoto - ej. Pantalla, Impresora)</option>
               </select>
 
               <button 
@@ -558,18 +559,24 @@ export default function DeviceManager({
                                   ) : device.platform === 'android' ? (
                                     <Smartphone size={18} style={{ color: '#a78bfa' }} />
                                   ) : (
-                                    <MonitorSmartphone size={18} />
+                                    <MonitorSmartphone size={18} style={{ color: '#94a3b8' }} />
                                   )}
-                                  <div style={{
-                                    position: 'absolute', bottom: '6px', right: '6px',
-                                    width: '8px', height: '8px', borderRadius: '50%',
-                                    background: isOnline ? 'var(--success)' : '#ef4444',
-                                    border: '2px solid var(--bg-dark)'
-                                  }} />
+                                  {device.platform !== 'manual' && (
+                                    <div style={{
+                                      position: 'absolute', bottom: '6px', right: '6px',
+                                      width: '8px', height: '8px', borderRadius: '50%',
+                                      background: isOnline ? 'var(--success)' : '#ef4444',
+                                      border: '2px solid var(--bg-dark)'
+                                    }} />
+                                  )}
                                 </div>
                                 <div className="device-info">
                                   <h4>{device.name}</h4>
-                                  <p>{isOnline ? 'En línea' : 'Desconectado'}</p>
+                                  <p>
+                                    {device.platform === 'manual' 
+                                      ? (device.estado || 'Activo') 
+                                      : (isOnline ? 'En línea' : 'Desconectado')}
+                                  </p>
                                 </div>
                               </div>
                             );
@@ -770,7 +777,7 @@ export default function DeviceManager({
                 stream={remoteStream} 
                 onMouseEvent={onMouseEvent} 
                 onKeyEvent={onKeyEvent} 
-                platform={selectedDevice.platform}
+                platform={selectedDevice.platform === 'manual' ? undefined : selectedDevice.platform}
               />
             )}
             {activeTool === 'files' && (
@@ -854,7 +861,9 @@ export default function DeviceManager({
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>{selectedDevice.name}</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                   <span style={{ color: 'var(--text-muted)' }}>ID: {selectedDevice.id}</span>
-                  {isOnline ? (
+                  {selectedDevice.platform === 'manual' ? (
+                    <span className="status-badge" style={{ background: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8' }}>Activo Pasivo ({selectedDevice.estado || 'Activo'})</span>
+                  ) : isOnline ? (
                     <span className="status-badge">En línea</span>
                   ) : (
                     <span className="status-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>Desconectado</span>
@@ -926,8 +935,17 @@ export default function DeviceManager({
           </div>
 
           {detailsTab === 'services' ? (
-            <>
-              <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
+            selectedDevice.platform === 'manual' ? (
+              <div style={{ padding: '32px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed var(--border)', color: 'var(--text-muted)', marginTop: '20px' }}>
+                <MonitorSmartphone size={48} style={{ opacity: 0.3, marginBottom: '16px', color: '#94a3b8' }} />
+                <h3>Activo Pasivo de Inventario</h3>
+                <p style={{ maxWidth: '400px', margin: '8px auto', fontSize: '0.9rem' }}>
+                  Este equipo fue catalogado manualmente (ej. pantalla, periférico, mobiliario) y no admite soporte o control remoto WebRTC.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Servicios Disponibles</h3>
 
               <div className="action-grid">
                 <div 
@@ -970,6 +988,7 @@ export default function DeviceManager({
                 </div>
               </div>
             </>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Download, Printer, ArrowLeft, Search, Database, FileText, CheckCircle2, AlertTriangle, Disc, Layers } from 'lucide-react';
+import { ClipboardList, Download, Printer, ArrowLeft, Search, Database, FileText, CheckCircle2, AlertTriangle, Disc, Layers, Plus, Edit, Trash2 } from 'lucide-react';
 
 interface SavedDevice {
   id: string;
   name: string;
   group?: string;
-  platform?: 'android' | 'windows';
+  platform?: 'android' | 'windows' | 'manual';
   placa?: string;
   marca?: string;
   modelo?: string;
@@ -27,7 +27,6 @@ interface Props {
 
 export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: Props) {
   const [devices, setDevices] = useState<SavedDevice[]>([]);
-  const [groups, setGroups] = useState<string[]>([]);
   
   // Filter States
   const [searchText, setSearchText] = useState('');
@@ -42,7 +41,26 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
   const [receiptIdCard, setReceiptIdCard] = useState('');
   const [receiptDepartment, setReceiptDepartment] = useState('');
 
-  // Load Devices and Groups
+  // Add/Edit Asset Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<SavedDevice | null>(null);
+
+  // Form Fields State
+  const [formPlaca, setFormPlaca] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formGroup, setFormGroup] = useState('');
+  const [formMarca, setFormMarca] = useState('');
+  const [formModelo, setFormModelo] = useState('');
+  const [formSerie, setFormSerie] = useState('');
+  const [formDisco, setFormDisco] = useState('');
+  const [formRAM, setFormRAM] = useState('');
+  const [formProcesador, setFormProcesador] = useState('');
+  const [formSO, setFormSO] = useState('');
+  const [formResponsable, setFormResponsable] = useState('');
+  const [formEstado, setFormEstado] = useState<'Activo' | 'En Bodega' | 'Mantenimiento' | 'Dado de Baja'>('Activo');
+  const [formNotas, setFormNotas] = useState('');
+
+  // Load Devices
   useEffect(() => {
     const savedDevs = localStorage.getItem('rosti_saved_devices');
     if (savedDevs) {
@@ -54,15 +72,143 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
           estado: d.estado || 'Activo'
         }));
         setDevices(initialized);
-
-        // Extract groups
-        const uniqueGroups = Array.from(new Set(initialized.map(d => d.group).filter(Boolean))) as string[];
-        setGroups(uniqueGroups);
       } catch (e) {
         console.error("Error loading devices for report", e);
       }
     }
   }, []);
+
+  // Recalculate groups and brands dynamically
+  const groups = Array.from(new Set(devices.map(d => d.group).filter(Boolean))) as string[];
+  const uniqueBrands = Array.from(new Set(devices.map(d => d.marca).filter(Boolean))) as string[];
+
+  const openAddModal = () => {
+    setEditingDevice(null);
+    setFormPlaca('');
+    setFormName('');
+    setFormGroup('');
+    setFormMarca('');
+    setFormModelo('');
+    setFormSerie('');
+    setFormDisco('');
+    setFormRAM('');
+    setFormProcesador('');
+    setFormSO('');
+    setFormResponsable('');
+    setFormEstado('Activo');
+    setFormNotas('');
+    setIsEditModalOpen(true);
+  };
+
+  const openEditModal = (dev: SavedDevice) => {
+    setEditingDevice(dev);
+    setFormPlaca(dev.placa || '');
+    setFormName(dev.name || '');
+    setFormGroup(dev.group || '');
+    setFormMarca(dev.marca || '');
+    setFormModelo(dev.modelo || '');
+    setFormSerie(dev.serie || '');
+    setFormDisco(dev.disco || '');
+    setFormRAM(dev.ram || '');
+    setFormProcesador(dev.procesador || '');
+    setFormSO(dev.so || '');
+    setFormResponsable(dev.responsable || '');
+    setFormEstado(dev.estado || 'Activo');
+    setFormNotas(dev.notas || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveDevice = () => {
+    if (!formName.trim()) {
+      alert('El nombre del equipo/activo es obligatorio.');
+      return;
+    }
+
+    let updatedDevices: SavedDevice[] = [];
+    const savedDevsStr = localStorage.getItem('rosti_saved_devices');
+    const existingDevs: SavedDevice[] = savedDevsStr ? JSON.parse(savedDevsStr) : [];
+
+    if (editingDevice) {
+      // Editing existing device
+      updatedDevices = existingDevs.map(d => {
+        if (d.id === editingDevice.id) {
+          return {
+            ...d,
+            placa: formPlaca.trim(),
+            name: formName.trim(),
+            group: formGroup.trim(),
+            marca: formMarca.trim(),
+            modelo: formModelo.trim(),
+            serie: formSerie.trim(),
+            disco: formDisco.trim(),
+            ram: formRAM.trim(),
+            procesador: formProcesador.trim(),
+            so: formSO.trim(),
+            responsable: formResponsable.trim(),
+            estado: formEstado,
+            notas: formNotas.trim(),
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return d;
+      });
+    } else {
+      // Creating new manual device
+      const newId = 'manual-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+      const newDev: SavedDevice = {
+        id: newId,
+        name: formName.trim(),
+        group: formGroup.trim() || undefined,
+        platform: 'manual',
+        placa: formPlaca.trim(),
+        marca: formMarca.trim(),
+        modelo: formModelo.trim(),
+        serie: formSerie.trim(),
+        disco: formDisco.trim(),
+        ram: formRAM.trim(),
+        procesador: formProcesador.trim(),
+        so: formSO.trim(),
+        responsable: formResponsable.trim(),
+        estado: formEstado,
+        notas: formNotas.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      updatedDevices = [...existingDevs, newDev];
+    }
+
+    // Save to localStorage
+    localStorage.setItem('rosti_saved_devices', JSON.stringify(updatedDevices));
+    
+    // Update React state
+    setDevices(updatedDevices.map(d => ({
+      ...d,
+      estado: d.estado || 'Activo'
+    })));
+    
+    // Close modal
+    setIsEditModalOpen(false);
+  };
+
+  const handleDeleteDevice = (id: string) => {
+    if (!window.confirm('¿Estás seguro de eliminar este activo permanentemente de tu inventario?')) return;
+    
+    const savedDevsStr = localStorage.getItem('rosti_saved_devices');
+    const existingDevs: SavedDevice[] = savedDevsStr ? JSON.parse(savedDevsStr) : [];
+    
+    const updatedDevices = existingDevs.filter(d => d.id !== id);
+    
+    // Save to localStorage
+    localStorage.setItem('rosti_saved_devices', JSON.stringify(updatedDevices));
+    
+    // Update React state
+    setDevices(updatedDevices.map(d => ({
+      ...d,
+      estado: d.estado || 'Activo'
+    })));
+    
+    // Close modal
+    setIsEditModalOpen(false);
+  };
 
   // Filtered Devices
   const filteredDevices = devices.filter(d => {
@@ -84,8 +230,7 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
     return matchesSearch && matchesGroup && matchesBrand && matchesOS && matchesStatus;
   });
 
-  // Unique brands & OS for filter dropdowns
-  const uniqueBrands = Array.from(new Set(devices.map(d => d.marca).filter(Boolean))) as string[];
+  // Unique OS for filter dropdowns
   const uniqueOSList = ['Windows 11', 'Windows 10', 'macOS', 'Android', 'Linux'];
 
   // Metrics Calculations
@@ -369,6 +514,26 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
         
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={openAddModal}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+            className="hover-bright"
+          >
+            <Plus size={16} />
+            Agregar Activo Manual
+          </button>
           <button 
             onClick={handleExportCSV} 
             disabled={filteredDevices.length === 0}
@@ -669,29 +834,53 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <button
-                        onClick={() => {
-                          setSelectedReceiptDevice(d);
-                          setReceiptEmployee(d.responsable || '');
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
-                          borderRadius: '6px',
-                          padding: '4px 8px',
-                          fontSize: '0.75rem',
-                          color: '#3b82f6',
-                          cursor: 'pointer',
-                          fontWeight: 600
-                        }}
-                        className="hover-bright"
-                      >
-                        <FileText size={12} />
-                        Generar Acta
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          onClick={() => {
+                            setSelectedReceiptDevice(d);
+                            setReceiptEmployee(d.responsable || '');
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
+                            color: '#3b82f6',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                          className="hover-bright"
+                          title="Generar Acta de Entrega firmada"
+                        >
+                          <FileText size={12} />
+                          Acta
+                        </button>
+                        <button
+                          onClick={() => openEditModal(d)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
+                            color: '#f59e0b',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                          className="hover-bright"
+                          title="Editar detalles del Activo"
+                        >
+                          <Edit size={12} />
+                          Editar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -831,6 +1020,272 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
                 Generar Documento
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Asset Modal */}
+      {isEditModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '650px',
+            borderRadius: '16px',
+            padding: '24px',
+            backgroundColor: 'var(--bg-dark)',
+            border: '1px solid var(--border-color)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Database size={20} style={{ color: 'var(--accent)' }} />
+              {editingDevice ? 'Editar Activo de Inventario' : 'Agregar Activo Manual'}
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              
+              {/* Basic Details */}
+              <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nombre del Activo / Equipo *</label>
+                <input 
+                  type="text" 
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="ej. Pantalla Dell 24 U2419H o Rosti-PC-12"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Placa de Activo</label>
+                <input 
+                  type="text" 
+                  value={formPlaca}
+                  onChange={(e) => setFormPlaca(e.target.value)}
+                  placeholder="ej. ACT-2026-0045"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Grupo</label>
+                <input 
+                  type="text" 
+                  value={formGroup}
+                  onChange={(e) => setFormGroup(e.target.value)}
+                  placeholder="ej. Contabilidad, Ventas"
+                  list="modalGroupsList"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+                <datalist id="modalGroupsList">
+                  {groups.map(g => <option key={g} value={g} />)}
+                </datalist>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Marca</label>
+                <input 
+                  type="text" 
+                  value={formMarca}
+                  onChange={(e) => setFormMarca(e.target.value)}
+                  placeholder="ej. Dell, HP, Samsung"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Modelo</label>
+                <input 
+                  type="text" 
+                  value={formModelo}
+                  onChange={(e) => setFormModelo(e.target.value)}
+                  placeholder="ej. UltraSharp U2419H"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Número de Serie</label>
+                <input 
+                  type="text" 
+                  value={formSerie}
+                  onChange={(e) => setFormSerie(e.target.value)}
+                  placeholder="ej. CN-0K2Y0W-72872-..."
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              {/* Specs fields (optional for monitors, but great to have) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Procesador (CPU)</label>
+                <input 
+                  type="text" 
+                  value={formProcesador}
+                  onChange={(e) => setFormProcesador(e.target.value)}
+                  placeholder="ej. N/A o Intel i5"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Memoria RAM</label>
+                <input 
+                  type="text" 
+                  value={formRAM}
+                  onChange={(e) => setFormRAM(e.target.value)}
+                  placeholder="ej. N/A o 16 GB"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Disco Duro / Almacenamiento</label>
+                <input 
+                  type="text" 
+                  value={formDisco}
+                  onChange={(e) => setFormDisco(e.target.value)}
+                  placeholder="ej. N/A o 512 GB SSD"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Sistema Operativo</label>
+                <input 
+                  type="text" 
+                  value={formSO}
+                  onChange={(e) => setFormSO(e.target.value)}
+                  placeholder="ej. Windows 11 o N/A"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              {/* Assignment details */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Usuario Responsable</label>
+                <input 
+                  type="text" 
+                  value={formResponsable}
+                  onChange={(e) => setFormResponsable(e.target.value)}
+                  placeholder="ej. Juan Pérez"
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Estado del Activo</label>
+                <select
+                  value={formEstado}
+                  onChange={(e) => setFormEstado(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--bg-darker)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-color)',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Activo">Activo</option>
+                  <option value="En Bodega">En Bodega</option>
+                  <option value="Mantenimiento">Mantenimiento</option>
+                  <option value="Dado de Baja">Dado de Baja</option>
+                </select>
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Notas y Ubicación Detallada</label>
+                <textarea 
+                  value={formNotas}
+                  onChange={(e) => setFormNotas(e.target.value)}
+                  placeholder="Detalles sobre accesorios, ubicación física en oficina, etc."
+                  rows={3}
+                  style={{ width: '100%', backgroundColor: 'var(--bg-darker)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-color)', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </div>
+
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                {editingDevice && (
+                  <button
+                    onClick={() => handleDeleteDevice(editingDevice.id)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    className="hover-bright"
+                  >
+                    <Trash2 size={14} />
+                    Eliminar Activo
+                  </button>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-color)',
+                    border: '1px solid var(--border-color)',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  className="hover-bright"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveDevice}
+                  disabled={!formName.trim()}
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: !formName.trim() ? 'not-allowed' : 'pointer',
+                    opacity: !formName.trim() ? 0.6 : 1
+                  }}
+                  className="hover-bright"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
