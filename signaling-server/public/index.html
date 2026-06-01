@@ -624,17 +624,27 @@
                     return;
                 }
 
-                tbody.innerHTML = devices.map(d => `
-                    <tr>
-                        <td><span style="font-family: monospace;">${d.id}</span></td>
-                        <td>
-                            <span class="status-dot" style="background-color: ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}; box-shadow: 0 0 8px ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}"></span>
-                            ${d.isAndroid ? 'Cliente Android' : (d.isWindows ? 'Cliente Windows' : d.status)}
-                        </td>
-                        <td><strong>${d.roomId || '-'}</strong></td>
-                        <td>${d.connectedAt ? new Date(d.connectedAt).toLocaleTimeString() : '-'}</td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = devices.map(d => {
+                    let displayType = d.isAndroid ? 'Cliente Android' : (d.isWindows ? 'Cliente Windows' : d.status);
+                    if (d.specs) {
+                        if (d.specs.name) {
+                            displayType = `${d.specs.name} <span style="font-size: 0.8rem; opacity: 0.7;">(${d.specs.group || 'Sin Grupo'})</span>`;
+                        } else if (d.isAndroid) {
+                            displayType = `Cliente Android <span style="font-size: 0.8rem; opacity: 0.7;">(${d.specs.marca || ''} ${d.specs.modelo || ''})</span>`;
+                        }
+                    }
+                    return `
+                        <tr>
+                            <td><span style="font-family: monospace;">${d.id}</span></td>
+                            <td>
+                                <span class="status-dot" style="background-color: ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}; box-shadow: 0 0 8px ${(d.isAndroid || d.isWindows) ? 'var(--success)' : 'var(--primary)'}"></span>
+                                ${displayType}
+                            </td>
+                            <td><strong>${d.roomId || '-'}</strong></td>
+                            <td>${d.connectedAt ? new Date(d.connectedAt).toLocaleTimeString() : '-'}</td>
+                        </tr>
+                    `;
+                }).join('');
             });
 
             socket.on('auth-error', (err) => {

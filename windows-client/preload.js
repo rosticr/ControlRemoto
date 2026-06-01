@@ -109,7 +109,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.send('window-close'),
 
   // Socket Connection and Signaling (via HTML events)
-  connectSocket: (url, deviceId) => {
+  connectSocket: (url, deviceId, deviceName, group) => {
     if (socket) socket.disconnect();
     
     console.log(`Preload connecting to signaling server: ${url} for room: ${deviceId}`);
@@ -122,7 +122,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     socket.on('connect', () => {
       window.dispatchEvent(new CustomEvent('socket-connected'));
       getSystemSpecs((specs) => {
-        socket.emit('register-device', deviceId, specs);
+        const enrichedSpecs = {
+          ...specs,
+          name: deviceName,
+          group: group
+        };
+        socket.emit('register-device', deviceId, enrichedSpecs);
       });
     });
 

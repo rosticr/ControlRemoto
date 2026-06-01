@@ -156,7 +156,9 @@ async function startApp() {
 // Trigger socket connection
 function connectToSignaling() {
   updateConnectionUI('connecting');
-  window.electronAPI.connectSocket(config.serverUrl.trim(), config.deviceId.trim());
+  const name = (config.deviceName || window.electronAPI.getHostName() || '').trim();
+  const group = (config.group || 'Sin Grupo').trim();
+  window.electronAPI.connectSocket(config.serverUrl.trim(), config.deviceId.trim(), name, group);
 }
 
 // Teardown WebRTC session
