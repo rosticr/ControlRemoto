@@ -169,7 +169,7 @@ export default function DeviceManager({
       setEditName(selectedDevice.name || '');
       setEditPlaca(selectedDevice.placa || '');
       setEditResponsable(selectedDevice.responsable || '');
-      setEditNotas(selectedDevice.notes || selectedDevice.notas || ''); // Support notes fallback
+      setEditNotas(selectedDevice.notas || '');
       setEditEstado(selectedDevice.estado || 'Activo');
       setEditMarca(selectedDevice.marca || '');
       setEditModelo(selectedDevice.modelo || '');
