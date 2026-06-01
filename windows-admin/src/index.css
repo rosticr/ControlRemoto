@@ -347,6 +347,11 @@ input, select {
   font-family: inherit;
 }
 
+select option {
+  background-color: #131b2f;
+  color: #f8fafc;
+}
+
 input:focus, select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
