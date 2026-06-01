@@ -389,15 +389,15 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
           <table class="info-table">
             <tr>
               <td class="label">Nombre Completo:</td>
-              <td>\${window.opener ? "${receiptEmployee}" : ''}</td>
+              <td>${receiptEmployee}</td>
             </tr>
             <tr>
               <td class="label">Identificación / Cédula:</td>
-              <td>\${window.opener ? "${receiptIdCard}" : ''}</td>
+              <td>${receiptIdCard}</td>
             </tr>
             <tr>
               <td class="label">Departamento / Área:</td>
-              <td>\${window.opener ? "${receiptDepartment}" : ''}</td>
+              <td>${receiptDepartment}</td>
             </tr>
             <tr>
               <td class="label">Fecha de Entrega:</td>
@@ -463,7 +463,7 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
             </div>
             <div class="signature-block">
               <p>Recibido Conforme (Colaborador):</p>
-              <div class="signature-line">\${window.opener ? "${receiptEmployee}" : 'Firma de Colaborador'}</div>
+              <div class="signature-line">${receiptEmployee || 'Firma de Colaborador'}</div>
             </div>
           </div>
         </body>
