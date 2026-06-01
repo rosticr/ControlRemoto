@@ -91,8 +91,46 @@ export default function DeviceManager({
 }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
-  const [savedDevices, setSavedDevices] = useState<SavedDevice[]>([]);
-  const [savedGroups, setSavedGroups] = useState<string[]>([]);
+  const [savedDevices, setSavedDevices] = useState<SavedDevice[]>(() => {
+    const savedDevs = localStorage.getItem('rosti_saved_devices');
+    if (savedDevs) {
+      try {
+        return JSON.parse(savedDevs);
+      } catch (e) {
+        console.error("Error parsing saved devices", e);
+      }
+    }
+    return [];
+  });
+  const [savedGroups, setSavedGroups] = useState<string[]>(() => {
+    const savedGrs = localStorage.getItem('rosti_saved_groups');
+    let groupsList: string[] = [];
+    if (savedGrs) {
+      try {
+        groupsList = JSON.parse(savedGrs);
+      } catch (e) {
+        console.error("Error parsing saved groups", e);
+      }
+    }
+    if (groupsList.length === 0) {
+      // Try to migrate from devices in localStorage if available
+      const savedDevs = localStorage.getItem('rosti_saved_devices');
+      let devicesList: SavedDevice[] = [];
+      if (savedDevs) {
+        try {
+          devicesList = JSON.parse(savedDevs);
+        } catch (e) {}
+      }
+      const existingGroups = Array.from(new Set(devicesList.map(d => d.group).filter(Boolean))) as string[];
+      if (existingGroups.length > 0) {
+        groupsList = existingGroups;
+      } else {
+        groupsList = DEFAULT_ORGANIZATION_GROUPS;
+      }
+      localStorage.setItem('rosti_saved_groups', JSON.stringify(groupsList));
+    }
+    return groupsList;
+  });
   const [isGroupsLoadedFromServer, setIsGroupsLoadedFromServer] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   
@@ -281,39 +319,6 @@ export default function DeviceManager({
   };
 
   useEffect(() => {
-    const savedDevs = localStorage.getItem('rosti_saved_devices');
-    let devicesList: SavedDevice[] = [];
-    if (savedDevs) {
-      try {
-        devicesList = JSON.parse(savedDevs);
-        setSavedDevices(devicesList);
-      } catch (e) {
-        console.error("Error parsing saved devices", e);
-      }
-    }
-
-    const savedGrs = localStorage.getItem('rosti_saved_groups');
-    let initialGrs: string[] = [];
-    if (savedGrs) {
-      try {
-        initialGrs = JSON.parse(savedGrs);
-      } catch (e) {
-        console.error("Error parsing saved groups", e);
-      }
-    }
-    
-    if (initialGrs.length === 0) {
-      // Migrate from existing devices if they have groups
-      const existingGroups = Array.from(new Set(devicesList.map(d => d.group).filter(Boolean))) as string[];
-      if (existingGroups.length > 0) {
-        initialGrs = existingGroups;
-      } else {
-        initialGrs = DEFAULT_ORGANIZATION_GROUPS;
-      }
-      localStorage.setItem('rosti_saved_groups', JSON.stringify(initialGrs));
-    }
-    setSavedGroups(initialGrs);
-
     // Sync from server on mount (Merge with local groups)
     if (serverUrl) {
       fetch(`${serverUrl}/api/groups`)
