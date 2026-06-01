@@ -52,5 +52,5 @@ jobs:
         with:
           name: macOS-Installers
           path: |
-            windows-admin/dist/*.dmg
+            windows-admin/release/*.dmg
             windows-client/dist/*.dmg

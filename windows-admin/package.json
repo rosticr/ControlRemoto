@@ -16,6 +16,9 @@
   "build": {
     "appId": "com.rosti.windowsadmin",
     "productName": "RostiWindowsAdmin",
+    "directories": {
+      "output": "release"
+    },
     "win": {
       "target": "nsis",
       "icon": "icon.ico"
