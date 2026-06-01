@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -452,6 +452,29 @@ export default function DeviceManager({
     }));
   };
 
+  const moveGroup = (groupName: string, direction: 'up' | 'down', e: React.MouseEvent) => {
+    e.stopPropagation();
+    const index = savedGroups.indexOf(groupName);
+    if (index === -1) return;
+    
+    const newGroups = [...savedGroups];
+    if (direction === 'up' && index > 0) {
+      const temp = newGroups[index];
+      newGroups[index] = newGroups[index - 1];
+      newGroups[index - 1] = temp;
+    } else if (direction === 'down' && index < newGroups.length - 1) {
+      const temp = newGroups[index];
+      newGroups[index] = newGroups[index + 1];
+      newGroups[index + 1] = temp;
+    } else {
+      return;
+    }
+    
+    setSavedGroups(newGroups);
+    localStorage.setItem('rosti_saved_groups', JSON.stringify(newGroups));
+    syncGroupsWithServer(newGroups);
+  };
+
   const renderList = () => (
     <div className="list-panel">
       <div className="list-header">
@@ -673,6 +696,44 @@ export default function DeviceManager({
                         <span style={{ fontSize: '0.75rem', color: onlineCount > 0 ? 'var(--success)' : 'inherit', marginRight: '4px' }}>
                           {onlineCount}/{devices.length}
                         </span>
+
+                        {!searchTerm && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginRight: '4px' }}>
+                            <button
+                              onClick={(e) => moveGroup(groupName, 'up', e)}
+                              disabled={savedGroups.indexOf(groupName) === 0}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: savedGroups.indexOf(groupName) === 0 ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)',
+                                cursor: savedGroups.indexOf(groupName) === 0 ? 'default' : 'pointer',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title="Subir Grupo"
+                            >
+                              <ChevronUp size={14} className={savedGroups.indexOf(groupName) === 0 ? "" : "hover-bright"} />
+                            </button>
+                            <button
+                              onClick={(e) => moveGroup(groupName, 'down', e)}
+                              disabled={savedGroups.indexOf(groupName) === savedGroups.length - 1}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: savedGroups.indexOf(groupName) === savedGroups.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--text-muted)',
+                                cursor: savedGroups.indexOf(groupName) === savedGroups.length - 1 ? 'default' : 'pointer',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title="Bajar Grupo"
+                            >
+                              <ChevronDown size={14} className={savedGroups.indexOf(groupName) === savedGroups.length - 1 ? "" : "hover-bright"} />
+                            </button>
+                          </div>
+                        )}
+
                         {groupName !== 'Sin Grupo' && (
                           <button
                             onClick={(e) => {
