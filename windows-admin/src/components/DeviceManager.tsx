@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2 } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -133,6 +133,7 @@ export default function DeviceManager({
   });
   const [isGroupsLoadedFromServer, setIsGroupsLoadedFromServer] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Details View Tab ('services' | 'asset')
   const [detailsTab, setDetailsTab] = useState<'services' | 'asset'>('services');
@@ -455,6 +456,52 @@ export default function DeviceManager({
     <div className="list-panel">
       <div className="list-header">
         <h2>Dispositivos</h2>
+        
+        {/* Barra de búsqueda */}
+        <div style={{ position: 'relative', marginTop: '12px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input 
+            type="text"
+            placeholder="Buscar por nombre o ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'rgba(0, 0, 0, 0.25)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '8px 12px 8px 36px',
+              color: 'var(--text-main)',
+              fontSize: '0.85rem',
+              outline: 'none',
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+              boxSizing: 'border-box'
+            }}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Limpiar búsqueda"
+            >
+              <X size={14} className="hover-bright" />
+            </button>
+          )}
+        </div>
+
         <div className="tabs" style={{ marginTop: '16px', background: 'rgba(0,0,0,0.2)' }}>
           <div 
             className={`tab ${activeTab === 'list' ? 'active' : ''}`}
@@ -571,122 +618,141 @@ export default function DeviceManager({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {(() => {
+                const query = searchTerm.toLowerCase().trim();
+                const devicesToGroup = query 
+                  ? savedDevices.filter(d => d.name.toLowerCase().includes(query) || d.id.toLowerCase().includes(query))
+                  : savedDevices;
+
+                if (query && devicesToGroup.length === 0) {
+                  return (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: '40px', fontStyle: 'italic' }}>
+                      No se encontraron equipos para "{searchTerm}"
+                    </p>
+                  );
+                }
+
                 const acc: Record<string, SavedDevice[]> = {};
-                
-                // Initialize all saved groups
-                savedGroups.forEach(g => {
-                  acc[g] = [];
-                });
-                
-                // Populate devices
-                savedDevices.forEach(device => {
-                  const group = device.group || 'Sin Grupo';
-                  if (!acc[group]) {
-                    acc[group] = [];
-                  }
-                  acc[group].push(device);
-                });
-                
-                return Object.entries(acc);
-              })().map(([groupName, devices]) => {
-                const isCollapsed = collapsedGroups[groupName] || false;
-                const onlineCount = devices.filter(d => onlineDevices.includes(d.id)).length;
-                
-                return (
-                  <div key={groupName} style={{ marginBottom: '8px' }}>
-                    <div 
-                      onClick={() => toggleGroup(groupName)}
-                      style={{ 
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '8px 12px', cursor: 'pointer',
-                        color: 'var(--text-muted)'
-                      }}
-                    >
-                      {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                      <Folder size={14} />
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1 }}>{groupName}</span>
-                      <span style={{ fontSize: '0.75rem', color: onlineCount > 0 ? 'var(--success)' : 'inherit', marginRight: '4px' }}>
-                        {onlineCount}/{devices.length}
-                      </span>
-                      {groupName !== 'Sin Grupo' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`¿Estás seguro de eliminar el grupo "${groupName}"? Los equipos dentro de él se moverán a "Sin Grupo".`)) {
-                              removeGroup(groupName);
-                            }
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            padding: '2px',
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                          title="Eliminar Grupo"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                    
-                    {!isCollapsed && (
-                      <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '12px' }}>
-                        {devices.length === 0 ? (
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '8px 16px', margin: 0, fontStyle: 'italic' }}>
-                            (Grupo vacío - Sin equipos)
-                          </p>
-                        ) : (
-                          devices.map(device => {
-                            const isOnline = onlineDevices.includes(device.id);
-                            const isSelected = selectedDevice?.id === device.id;
-                            return (
-                              <div 
-                                key={device.id}
-                                className={`device-item ${isSelected ? 'active' : ''}`}
-                                onClick={() => {
-                                  setSelectedDevice(device);
-                                  if (connectedRoomId !== device.id) {
-                                    setActiveTool(null);
-                                  }
-                                }}
-                              >
-                                <div className="device-icon">
-                                  {device.platform === 'windows' ? (
-                                    <Monitor size={18} style={{ color: '#38bdf8' }} />
-                                  ) : device.platform === 'android' ? (
-                                    <Smartphone size={18} style={{ color: '#a78bfa' }} />
-                                  ) : (
-                                    <MonitorSmartphone size={18} style={{ color: '#94a3b8' }} />
-                                  )}
-                                  {device.platform !== 'manual' && (
-                                    <div style={{
-                                      position: 'absolute', bottom: '6px', right: '6px',
-                                      width: '8px', height: '8px', borderRadius: '50%',
-                                      background: isOnline ? 'var(--success)' : '#ef4444',
-                                      border: '2px solid var(--bg-dark)'
-                                    }} />
-                                  )}
-                                </div>
-                                <div className="device-info">
-                                  <h4>{device.name}</h4>
-                                  <p>
-                                    {device.platform === 'manual' 
-                                      ? (device.estado || 'Activo') 
-                                      : (isOnline ? 'En línea' : 'Desconectado')}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })
+                if (query) {
+                  devicesToGroup.forEach(device => {
+                    const group = device.group || 'Sin Grupo';
+                    if (!acc[group]) {
+                      acc[group] = [];
+                    }
+                    acc[group].push(device);
+                  });
+                } else {
+                  savedGroups.forEach(g => {
+                    acc[g] = [];
+                  });
+                  savedDevices.forEach(device => {
+                    const group = device.group || 'Sin Grupo';
+                    if (!acc[group]) {
+                      acc[group] = [];
+                    }
+                    acc[group].push(device);
+                  });
+                }
+
+                return Object.entries(acc).map(([groupName, devices]) => {
+                  const isCollapsed = query ? false : (collapsedGroups[groupName] || false);
+                  const onlineCount = devices.filter(d => onlineDevices.includes(d.id)).length;
+                  
+                  return (
+                    <div key={groupName} style={{ marginBottom: '8px' }}>
+                      <div 
+                        onClick={() => toggleGroup(groupName)}
+                        style={{ 
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          padding: '8px 12px', cursor: 'pointer',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        <Folder size={14} />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1 }}>{groupName}</span>
+                        <span style={{ fontSize: '0.75rem', color: onlineCount > 0 ? 'var(--success)' : 'inherit', marginRight: '4px' }}>
+                          {onlineCount}/{devices.length}
+                        </span>
+                        {groupName !== 'Sin Grupo' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`¿Estás seguro de eliminar el grupo "${groupName}"? Los equipos dentro de él se moverán a "Sin Grupo".`)) {
+                                removeGroup(groupName);
+                              }
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Eliminar Grupo"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      
+                      {!isCollapsed && (
+                        <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '12px' }}>
+                          {devices.length === 0 ? (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '8px 16px', margin: 0, fontStyle: 'italic' }}>
+                              (Grupo vacío - Sin equipos)
+                            </p>
+                          ) : (
+                            devices.map(device => {
+                              const isOnline = onlineDevices.includes(device.id);
+                              const isSelected = selectedDevice?.id === device.id;
+                              return (
+                                <div 
+                                  key={device.id}
+                                  className={`device-item ${isSelected ? 'active' : ''}`}
+                                  onClick={() => {
+                                    setSelectedDevice(device);
+                                    if (connectedRoomId !== device.id) {
+                                      setActiveTool(null);
+                                    }
+                                  }}
+                                >
+                                  <div className="device-icon">
+                                    {device.platform === 'windows' ? (
+                                      <Monitor size={18} style={{ color: '#38bdf8' }} />
+                                    ) : device.platform === 'android' ? (
+                                      <Smartphone size={18} style={{ color: '#a78bfa' }} />
+                                    ) : (
+                                      <MonitorSmartphone size={18} style={{ color: '#94a3b8' }} />
+                                    )}
+                                    {device.platform !== 'manual' && (
+                                      <div style={{
+                                        position: 'absolute', bottom: '6px', right: '6px',
+                                        width: '8px', height: '8px', borderRadius: '50%',
+                                        background: isOnline ? 'var(--success)' : '#ef4444',
+                                        border: '2px solid var(--bg-dark)'
+                                      }} />
+                                    )}
+                                  </div>
+                                  <div className="device-info">
+                                    <h4>{device.name}</h4>
+                                    <p>
+                                      {device.platform === 'manual' 
+                                        ? (device.estado || 'Activo') 
+                                        : (isOnline ? 'En línea' : 'Desconectado')}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
