@@ -183,7 +183,7 @@ export default function DeviceManager({
   const syncGroupsWithServer = async (groupsList: string[]) => {
     if (!serverUrl || !token) return;
     try {
-      await fetch(`${serverUrl}/api/groups`, {
+      const res = await fetch(`${serverUrl}/api/groups`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,6 +191,10 @@ export default function DeviceManager({
         },
         body: JSON.stringify({ groups: groupsList })
       });
+      if (res.status === 401 || res.status === 403) {
+        console.warn("Session expired on server during groups sync. Logging out.");
+        if (onLogout) onLogout();
+      }
     } catch (e) {
       console.error("Error syncing groups with server:", e);
     }
@@ -259,7 +263,7 @@ export default function DeviceManager({
         })
         .catch(err => console.error("Error fetching groups from server on mount:", err));
     }
-  }, [serverUrl]);
+  }, [serverUrl, token]);
 
   const saveDevice = () => {
     if (!newId.trim() || !newName.trim()) return;
