@@ -12,8 +12,16 @@
     "appId": "com.rosti.windowsclient",
     "productName": "RostiWindowsClient",
     "win": {
-      "target": "portable",
+      "target": "nsis",
       "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rosti Windows Client",
+      "runAfterFinish": true
     },
     "asar": true,
     "asarUnpack": [
