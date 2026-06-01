@@ -7,6 +7,13 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import org.json.JSONObject
 
+import android.os.Build
+import android.os.Environment
+import android.os.StatFs
+import android.app.ActivityManager
+import android.content.Context
+import android.provider.Settings
+
 class SocketClient {
     private var socket: Socket? = null
     var onStatusChange: ((String) -> Unit)? = null
@@ -20,7 +27,58 @@ class SocketClient {
         mainHandler.post { onStatusChange?.invoke(msg) }
     }
 
+    private fun getSystemSpecs(context: Context): JSONObject {
+        val specs = JSONObject()
+        try {
+            specs.put("marca", Build.MANUFACTURER)
+            specs.put("modelo", Build.MODEL)
+            
+            val androidId = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            )
+            specs.put("serie", androidId ?: "N/D")
+            specs.put("so", "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")")
+            
+            val cpuName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Build.SOC_MANUFACTURER + " " + Build.SOC_MODEL
+            } else {
+                Build.HARDWARE
+            }
+            specs.put("cpu", cpuName)
+
+            // RAM
+            val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val memInfo = ActivityManager.MemoryInfo()
+            actManager.getMemoryInfo(memInfo)
+            val totalRamGB = Math.round(memInfo.totalMem.toDouble() / (1024 * 1024 * 1024))
+            specs.put("ram", "$totalRamGB GB")
+
+            // Storage (Disco)
+            val path = Environment.getDataDirectory()
+            val stat = StatFs(path.path)
+            val blockSize = stat.blockSizeLong
+            val totalBlocks = stat.blockCountLong
+            val totalSpaceGB = Math.round((totalBlocks * blockSize).toDouble() / (1024 * 1024 * 1024))
+            specs.put("disco", "$totalSpaceGB GB")
+            
+        } catch (e: Exception) {
+            Log.e("SocketClient", "Error getting device specs", e)
+            try {
+                specs.put("marca", Build.MANUFACTURER)
+                specs.put("modelo", Build.MODEL)
+                specs.put("serie", "N/D")
+                specs.put("so", "Android")
+                specs.put("cpu", "N/D")
+                specs.put("ram", "N/D")
+                specs.put("disco", "N/D")
+            } catch (je: Exception) {}
+        }
+        return specs
+    }
+
     fun connect(
+        context: Context,
         url: String,
         roomId: String,
         onOfferInit: ((JSONObject) -> Unit)? = null,
@@ -42,7 +100,8 @@ class SocketClient {
 
             socket?.on(Socket.EVENT_CONNECT) {
                 updateStatus("✅ CONECTADO al servidor. Registrando como: $roomId")
-                socket?.emit("register-device", roomId)
+                val specs = getSystemSpecs(context)
+                socket?.emit("register-device", roomId, specs)
             }
 
             socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->

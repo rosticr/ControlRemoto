@@ -81,7 +81,7 @@ class RemoteControlService : Service() {
             
             socketClient?.onStatusChange = { msg -> sendStatus(msg) }
             
-        socketClient?.connect(serverUrl, roomId,
+            socketClient?.connect(this, serverUrl, roomId,
                 onOfferInit = { currentOffer ->
                     Log.d("RemoteControl", "Offer recibido, creando Answer...")
                     isRemoteDescriptionSet = false
