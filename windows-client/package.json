@@ -24,6 +24,14 @@
       "shortcutName": "Rosti Windows Client",
       "runAfterFinish": true
     },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.utilities"
+    },
     "asar": true,
     "asarUnpack": [
       "InputSimulator.exe"
