@@ -42,6 +42,9 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/mac-universal-x64-temp/**/*",
+      "!dist/mac-universal-arm64-temp/**/*",
+      "!dist/mac-universal/**/*",
       "electron/**/*",
       "package.json",
       "icon.ico",
