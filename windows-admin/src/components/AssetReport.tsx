@@ -355,22 +355,26 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
         <head>
           <title>Acta de Entrega de Equipo - ${d.name}</title>
           <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin: 40px; line-height: 1.5; font-size: 13px; }
-            .header { text-align: center; border-bottom: 3px double #1e3a8a; padding-bottom: 12px; margin-bottom: 25px; }
-            .header h1 { margin: 0; font-size: 20px; color: #1e3a8a; text-transform: uppercase; }
-            .header p { margin: 5px 0 0 0; font-size: 12px; color: #555; }
-            .section-title { font-weight: bold; font-size: 14px; color: #1e3a8a; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; margin-top: 25px; margin-bottom: 12px; text-transform: uppercase; }
-            table.info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            table.info-table td { padding: 6px; border: 1px solid #e5e7eb; vertical-align: top; }
+            @page { size: letter; margin: 12mm 15mm; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin: 0; line-height: 1.4; font-size: 11.5px; }
+            .header { text-align: center; border-bottom: 2px double #1e3a8a; padding-bottom: 8px; margin-bottom: 12px; }
+            .header h1 { margin: 0; font-size: 16px; color: #1e3a8a; text-transform: uppercase; }
+            .header p { margin: 3px 0 0 0; font-size: 10.5px; color: #555; }
+            .intro-text { margin: 8px 0; font-size: 11px; }
+            .section-title { font-weight: bold; font-size: 12px; color: #1e3a8a; border-bottom: 1px solid #d1d5db; padding-bottom: 2px; margin-top: 12px; margin-bottom: 6px; text-transform: uppercase; }
+            table.info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+            table.info-table td { padding: 4px 6px; border: 1px solid #e5e7eb; vertical-align: top; font-size: 11px; }
             table.info-table td.label { font-weight: bold; background-color: #f9fafb; width: 30%; }
-            .terms { text-align: justify; margin: 20px 0; font-size: 11px; color: #4b5563; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
-            .signature-block { width: 45%; text-align: center; }
-            .signature-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 8px; font-weight: bold; }
-            .noprint-btn { background-color: #1e3a8a; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
+            .terms { text-align: justify; margin: 8px 0; font-size: 9.5px; color: #4b5563; }
+            .terms ol { margin: 0; padding-left: 15px; }
+            .terms li { margin-bottom: 2px; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 30px; }
+            .signature-block { width: 45%; text-align: center; font-size: 11px; }
+            .signature-line { border-top: 1px solid #333; margin-top: 32px; padding-top: 4px; font-weight: bold; }
+            .noprint-btn { background-color: #1e3a8a; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 11px; }
             @media print {
               .noprint-btn { display: none; }
-              body { margin: 20px; }
+              body { margin: 0; }
             }
           </style>
         </head>
@@ -383,7 +387,7 @@ export default function AssetReport({ onlineDevicesDetails, onBackToDevices }: P
             <p>Departamento de Tecnologías de la Información - Corporación Rostipollos</p>
           </div>
 
-          <p>Por medio del presente documento, se hace constar la entrega formal del equipo de cómputo y periféricos que se detallan a continuación, en calidad de herramienta de trabajo.</p>
+          <p class="intro-text">Por medio del presente documento, se hace constar la entrega formal del equipo de cómputo y periféricos que se detallan a continuación, en calidad de herramienta de trabajo.</p>
 
           <div class="section-title">1. Datos del Colaborador Responsable</div>
           <table class="info-table">
