@@ -71,6 +71,19 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       // Ignorar si el usuario está escribiendo en un input de Windows (ej. chat, archivos)
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+      // Interceptar Ctrl+V o Cmd+V para portapapeles compartido
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        navigator.clipboard.readText().then(text => {
+          if (text) {
+            onKeyEvent('CLIPBOARD_PASTE:' + text);
+          }
+        }).catch(err => {
+          console.error("Failed to read local clipboard:", err);
+        });
+        return;
+      }
+
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Escape'].includes(e.code) || e.key.length === 1) {
         e.preventDefault();
         onKeyEvent(e.key);
@@ -83,6 +96,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [onKeyEvent]);
+
+  const handleWheelEvent = (e: React.WheelEvent<HTMLVideoElement>) => {
+    // deltaY > 0 means scroll down (send negative value to csc), deltaY < 0 means scroll up (send positive)
+    const scrollAmount = e.deltaY > 0 ? -120 : 120;
+    onMouseEvent('wheel', scrollAmount, 0);
+  };
 
   return (
     <div 
@@ -104,6 +123,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onPointerDown={(e) => handlePointerEvent(e, 'down')}
             onPointerUp={(e) => handlePointerEvent(e, 'up')}
             onPointerMove={(e) => handlePointerEvent(e, 'move')}
+            onWheel={handleWheelEvent}
             onContextMenu={(e) => e.preventDefault()}
           />
           <button

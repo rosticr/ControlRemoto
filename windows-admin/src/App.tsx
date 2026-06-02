@@ -194,7 +194,12 @@ function App() {
 
   const handleKeyEvent = (key: string) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
-      dataChannelRef.current.send(JSON.stringify({ type: 'key', key }));
+      if (key.startsWith('CLIPBOARD_PASTE:')) {
+        const text = key.substring('CLIPBOARD_PASTE:'.length);
+        dataChannelRef.current.send(JSON.stringify({ type: 'clipboard', text }));
+      } else {
+        dataChannelRef.current.send(JSON.stringify({ type: 'key', key }));
+      }
     }
   };
 

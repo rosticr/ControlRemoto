@@ -337,6 +337,11 @@ window.addEventListener('socket-offer', async (e) => {
               window.electronAPI.sendInputCmd('rightup');
             } else if (data.type === 'key') {
               window.electronAPI.sendInputCmd(`key ${data.key}`);
+            } else if (data.type === 'wheel') {
+              window.electronAPI.sendInputCmd(`wheel ${data.x}`);
+            } else if (data.type === 'clipboard') {
+              window.electronAPI.writeClipboard(data.text);
+              window.electronAPI.sendInputCmd('paste');
             }
           } catch (err) {
             console.error("Error processing control channel data:", err);

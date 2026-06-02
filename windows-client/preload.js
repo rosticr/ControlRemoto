@@ -94,6 +94,7 @@ $specs | ConvertTo-Json
 contextBridge.exposeInMainWorld('electronAPI', {
   // Input simulation forwarding
   sendInputCmd: (cmd) => ipcRenderer.send('simulate-input', cmd),
+  writeClipboard: (text) => ipcRenderer.send('clipboard-write', text),
 
   // Screen source fetching
   getScreenSources: () => ipcRenderer.invoke('get-screen-sources'),

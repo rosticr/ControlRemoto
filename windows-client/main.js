@@ -222,6 +222,12 @@ ipcMain.on('simulate-input', (event, cmd) => {
   }
 });
 
+// IPC Handler - Write text to OS clipboard
+ipcMain.on('clipboard-write', (event, text) => {
+  const { clipboard } = require('electron');
+  clipboard.writeText(text);
+});
+
 // IPC Handler - Get Screen Capturing Sources
 ipcMain.handle('get-screen-sources', async () => {
   const sources = await desktopCapturer.getSources({ types: ['screen'] });

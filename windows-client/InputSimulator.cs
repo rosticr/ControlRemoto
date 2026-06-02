@@ -55,6 +55,7 @@ class InputSimulator {
     const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
     const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
+    const uint MOUSEEVENTF_WHEEL = 0x0800;
 
     const uint KEYEVENTF_KEYDOWN = 0x0000;
     const uint KEYEVENTF_KEYUP = 0x0002;
@@ -150,6 +151,78 @@ class InputSimulator {
                         }
                     };
                     SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+                }
+                else if (cmd == "wheel" && parts.Length >= 2) {
+                    int delta = int.Parse(parts[1]);
+                    INPUT[] inputs = new INPUT[1];
+                    inputs[0] = new INPUT {
+                        type = INPUT_MOUSE,
+                        U = new InputUnion {
+                            mi = new MOUSEINPUT {
+                                dwFlags = MOUSEEVENTF_WHEEL,
+                                mouseData = unchecked((uint)delta),
+                                time = 0,
+                                dwExtraInfo = IntPtr.Zero
+                            }
+                        }
+                    };
+                    SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+                }
+                else if (cmd == "paste") {
+                    INPUT[] inputs = new INPUT[4];
+                    // Ctrl Down
+                    inputs[0] = new INPUT {
+                        type = INPUT_KEYBOARD,
+                        U = new InputUnion {
+                            ki = new KEYBDINPUT {
+                                wVk = 0x11,
+                                wScan = 0,
+                                dwFlags = KEYEVENTF_KEYDOWN,
+                                time = 0,
+                                dwExtraInfo = IntPtr.Zero
+                            }
+                        }
+                    };
+                    // V Down
+                    inputs[1] = new INPUT {
+                        type = INPUT_KEYBOARD,
+                        U = new InputUnion {
+                            ki = new KEYBDINPUT {
+                                wVk = 0x56,
+                                wScan = 0,
+                                dwFlags = KEYEVENTF_KEYDOWN,
+                                time = 0,
+                                dwExtraInfo = IntPtr.Zero
+                            }
+                        }
+                    };
+                    // V Up
+                    inputs[2] = new INPUT {
+                        type = INPUT_KEYBOARD,
+                        U = new InputUnion {
+                            ki = new KEYBDINPUT {
+                                wVk = 0x56,
+                                wScan = 0,
+                                dwFlags = KEYEVENTF_KEYUP,
+                                time = 0,
+                                dwExtraInfo = IntPtr.Zero
+                            }
+                        }
+                    };
+                    // Ctrl Up
+                    inputs[3] = new INPUT {
+                        type = INPUT_KEYBOARD,
+                        U = new InputUnion {
+                            ki = new KEYBDINPUT {
+                                wVk = 0x11,
+                                wScan = 0,
+                                dwFlags = KEYEVENTF_KEYUP,
+                                time = 0,
+                                dwExtraInfo = IntPtr.Zero
+                            }
+                        }
+                    };
+                    SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
                 }
                 else if (cmd == "key" && parts.Length >= 2) {
                     string keyVal = parts[1];
