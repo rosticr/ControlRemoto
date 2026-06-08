@@ -93,6 +93,42 @@ function saveGroups(groups) {
   fs.writeFileSync(GROUPS_FILE, JSON.stringify(groups, null, 2));
 }
 
+// Gestión de Inventario de Dispositivos y Grupos Fijados (Sincronización Multidispositivo)
+const DEVICES_FILE = path.join(PERSIST_DIR, 'devices.json');
+const PINNED_GROUPS_FILE = path.join(PERSIST_DIR, 'pinned_groups.json');
+
+function loadDevices() {
+  if (!fs.existsSync(DEVICES_FILE)) {
+    fs.writeFileSync(DEVICES_FILE, JSON.stringify([], null, 2));
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(DEVICES_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveDevices(devices) {
+  fs.writeFileSync(DEVICES_FILE, JSON.stringify(devices, null, 2));
+}
+
+function loadPinnedGroups() {
+  if (!fs.existsSync(PINNED_GROUPS_FILE)) {
+    fs.writeFileSync(PINNED_GROUPS_FILE, JSON.stringify([], null, 2));
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(PINNED_GROUPS_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function savePinnedGroups(pinned) {
+  fs.writeFileSync(PINNED_GROUPS_FILE, JSON.stringify(pinned, null, 2));
+}
+
 // Gestión de Usuarios
 const USERS_FILE = path.join(PERSIST_DIR, 'users.json');
 
@@ -359,6 +395,42 @@ app.post('/api/groups', authenticateToken, (req, res) => {
   }
   saveGroups(groups);
   res.json({ success: true, groups });
+});
+
+// Endpoint para obtener la lista de dispositivos guardados (público para clientes y admins)
+app.get('/api/devices', (req, res) => {
+  res.json(loadDevices());
+});
+
+// Endpoint para guardar la lista de dispositivos (solo Administradores)
+app.post('/api/devices', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Solo los administradores pueden gestionar dispositivos.' });
+  }
+  const { devices } = req.body;
+  if (!Array.isArray(devices)) {
+    return res.status(400).json({ error: 'La lista de dispositivos debe ser un arreglo.' });
+  }
+  saveDevices(devices);
+  res.json({ success: true, devices });
+});
+
+// Endpoint para obtener la lista de grupos fijados
+app.get('/api/pinned-groups', (req, res) => {
+  res.json(loadPinnedGroups());
+});
+
+// Endpoint para guardar la lista de grupos fijados (solo Administradores)
+app.post('/api/pinned-groups', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Solo los administradores pueden gestionar grupos fijados.' });
+  }
+  const { pinned } = req.body;
+  if (!Array.isArray(pinned)) {
+    return res.status(400).json({ error: 'La lista de grupos fijados debe ser un arreglo.' });
+  }
+  savePinnedGroups(pinned);
+  res.json({ success: true, pinned });
 });
 
 // Endpoint para eliminar versión (solo Administradores)

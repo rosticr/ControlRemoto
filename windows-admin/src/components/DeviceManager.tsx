@@ -133,6 +133,8 @@ export default function DeviceManager({
     return groupsList;
   });
   const [isGroupsLoadedFromServer, setIsGroupsLoadedFromServer] = useState(false);
+  const [isDevicesLoadedFromServer, setIsDevicesLoadedFromServer] = useState(false);
+  const [isPinnedGroupsLoadedFromServer, setIsPinnedGroupsLoadedFromServer] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<SavedDevice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [pinnedGroups, setPinnedGroups] = useState<string[]>(() => {
@@ -337,6 +339,131 @@ export default function DeviceManager({
       console.error("Error syncing groups with server:", e);
     }
   };
+
+  const syncDevicesWithServer = async (devicesList: SavedDevice[]) => {
+    if (!serverUrl || !token) return;
+    try {
+      const res = await fetch(`${serverUrl}/api/devices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ devices: devicesList })
+      });
+      if (res.status === 401 || res.status === 403) {
+        if (onLogout) onLogout();
+      }
+    } catch (e) {
+      console.error("Error syncing devices with server:", e);
+    }
+  };
+
+  const syncPinnedGroupsWithServer = async (pinnedList: string[]) => {
+    if (!serverUrl || !token) return;
+    try {
+      const res = await fetch(`${serverUrl}/api/pinned-groups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ pinned: pinnedList })
+      });
+      if (res.status === 401 || res.status === 403) {
+        if (onLogout) onLogout();
+      }
+    } catch (e) {
+      console.error("Error syncing pinned groups with server:", e);
+    }
+  };
+
+  // Sync devices to server when they change (after initial mount fetch)
+  useEffect(() => {
+    if (isDevicesLoadedFromServer && token) {
+      syncDevicesWithServer(savedDevices);
+    }
+  }, [savedDevices, isDevicesLoadedFromServer, token]);
+
+  // Sync pinned groups to server when they change (after initial mount fetch)
+  useEffect(() => {
+    if (isPinnedGroupsLoadedFromServer && token) {
+      syncPinnedGroupsWithServer(pinnedGroups);
+    }
+  }, [pinnedGroups, isPinnedGroupsLoadedFromServer, token]);
+
+  useEffect(() => {
+    // Sync devices from server on mount
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/devices`)
+        .then(res => res.json())
+        .then(serverDevices => {
+          if (Array.isArray(serverDevices)) {
+            let localDevs: SavedDevice[] = [];
+            const savedDevs = localStorage.getItem('rosti_saved_devices');
+            if (savedDevs) {
+              try {
+                localDevs = JSON.parse(savedDevs);
+              } catch (e) {}
+            }
+            
+            const mergedMap = new Map<string, SavedDevice>();
+            localDevs.forEach(d => mergedMap.set(d.id, d));
+            serverDevices.forEach(d => {
+              const existing = mergedMap.get(d.id);
+              if (!existing) {
+                mergedMap.set(d.id, d);
+              } else {
+                const localDate = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+                const serverDate = d.updatedAt ? new Date(d.updatedAt).getTime() : 0;
+                if (serverDate > localDate) {
+                  mergedMap.set(d.id, { ...existing, ...d });
+                } else {
+                  mergedMap.set(d.id, { ...d, ...existing });
+                }
+              }
+            });
+            
+            const mergedDevices = Array.from(mergedMap.values());
+            setSavedDevices(mergedDevices);
+            localStorage.setItem('rosti_saved_devices', JSON.stringify(mergedDevices));
+            setIsDevicesLoadedFromServer(true);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching devices from server on mount:", err);
+          setIsDevicesLoadedFromServer(true);
+        });
+    }
+  }, [serverUrl]);
+
+  useEffect(() => {
+    // Sync pinned groups from server on mount
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/pinned-groups`)
+        .then(res => res.json())
+        .then(serverPinned => {
+          if (Array.isArray(serverPinned)) {
+            let localPinned: string[] = [];
+            const savedPinned = localStorage.getItem('rosti_pinned_groups');
+            if (savedPinned) {
+              try {
+                localPinned = JSON.parse(savedPinned);
+              } catch (e) {}
+            }
+            
+            const mergedPinned = Array.from(new Set([...localPinned, ...serverPinned])).filter(Boolean) as string[];
+            setPinnedGroups(mergedPinned);
+            localStorage.setItem('rosti_pinned_groups', JSON.stringify(mergedPinned));
+            setIsPinnedGroupsLoadedFromServer(true);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching pinned groups from server on mount:", err);
+          setIsPinnedGroupsLoadedFromServer(true);
+        });
+    }
+  }, [serverUrl]);
 
   useEffect(() => {
     // Sync from server on mount (Merge with local groups)
