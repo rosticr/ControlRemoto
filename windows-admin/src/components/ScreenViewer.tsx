@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { MonitorPlay, Maximize2, Minimize2 } from 'lucide-react';
+import { MonitorPlay, Maximize2, Minimize2, Keyboard, MousePointer, ChevronUp, ChevronDown, Clipboard, XCircle } from 'lucide-react';
 
 interface Props {
   stream: MediaStream | null;
   onMouseEvent: (type: string, x: number, y: number) => void;
   onKeyEvent?: (key: string) => void;
   platform?: 'android' | 'windows';
+  onDisconnect?: () => void;
 }
 
-export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platform = 'android' }: Props) {
+export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platform = 'android', onDisconnect }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const keyboardInputRef = useRef<HTMLInputElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRightClickMode, setIsRightClickMode] = useState(false);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -56,9 +59,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     // Asegurarse de que el clic ocurrió DENTRO del área del video, no en las barras negras
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
       let eventType = type;
-      if (e.button === 2) {
+      if (e.button === 2 || isRightClickMode) {
         if (type === 'down') eventType = 'rightdown';
-        else if (type === 'up') eventType = 'rightup';
+        else if (type === 'up') {
+          eventType = 'rightup';
+          setIsRightClickMode(false); // Reset right click mode after action
+        }
       }
       onMouseEvent(eventType, x, y);
     }
@@ -103,6 +109,43 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     onMouseEvent('wheel', scrollAmount, 0);
   };
 
+  const handleKeyboardInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!onKeyEvent) return;
+    const text = e.target.value;
+    if (text.length > 0) {
+      for (let i = 0; i < text.length; i++) {
+        onKeyEvent(text[i]);
+      }
+      e.target.value = '';
+    }
+  };
+
+  const handleKeyboardKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!onKeyEvent) return;
+    if (e.key === 'Backspace') {
+      onKeyEvent('Backspace');
+    } else if (e.key === 'Enter') {
+      onKeyEvent('Enter');
+    }
+  };
+
+  const handleMobilePaste = () => {
+    if (!onKeyEvent) return;
+    navigator.clipboard.readText().then(text => {
+      if (text) {
+        onKeyEvent('CLIPBOARD_PASTE:' + text);
+      }
+    }).catch(err => {
+      console.error("Failed to read local clipboard:", err);
+    });
+  };
+
+  const triggerMobileKeyboard = () => {
+    if (keyboardInputRef.current) {
+      keyboardInputRef.current.focus();
+    }
+  };
+
   return (
     <div 
       className={`screen-viewer ${platform === 'windows' ? 'platform-windows' : 'platform-android'} ${isFullscreen ? 'fullscreen' : ''}`}
@@ -126,6 +169,73 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onWheel={handleWheelEvent}
             onContextMenu={(e) => e.preventDefault()}
           />
+
+          {/* Hidden Input for Mobile Keyboard */}
+          <input
+            ref={keyboardInputRef}
+            type="text"
+            onChange={handleKeyboardInput}
+            onKeyDown={handleKeyboardKeyDown}
+            style={{
+              position: 'absolute',
+              top: '-100px',
+              left: '-100px',
+              width: '1px',
+              height: '1px',
+              opacity: 0,
+              pointerEvents: 'none'
+            }}
+          />
+
+          {/* Mobile Floating Overlay Controls (visible only on mobile) */}
+          <div className="mobile-controls-bar" style={{ display: 'none' }}>
+            <button 
+              className="mobile-control-btn"
+              onClick={triggerMobileKeyboard}
+              title="Teclado"
+            >
+              <Keyboard size={20} />
+            </button>
+            <button 
+              className={`mobile-control-btn ${isRightClickMode ? 'active' : ''}`}
+              onClick={() => setIsRightClickMode(!isRightClickMode)}
+              title="Clic Derecho"
+            >
+              <MousePointer size={20} />
+            </button>
+            <button 
+              className="mobile-control-btn"
+              onClick={() => onMouseEvent('wheel', 120, 0)}
+              title="Scroll Arriba"
+            >
+              <ChevronUp size={20} />
+            </button>
+            <button 
+              className="mobile-control-btn"
+              onClick={() => onMouseEvent('wheel', -120, 0)}
+              title="Scroll Abajo"
+            >
+              <ChevronDown size={20} />
+            </button>
+            <button 
+              className="mobile-control-btn"
+              onClick={handleMobilePaste}
+              title="Pegar"
+            >
+              <Clipboard size={20} />
+            </button>
+            {onDisconnect && (
+              <button 
+                className="mobile-control-btn"
+                onClick={onDisconnect}
+                style={{ color: '#ef4444' }}
+                title="Desconectar"
+              >
+                <XCircle size={20} />
+              </button>
+            )}
+          </div>
+
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="fullscreen-toggle-btn"

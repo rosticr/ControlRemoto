@@ -542,3 +542,130 @@ button:disabled {
   border-radius: 6px;
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+/* Media Queries for Mobile Responsiveness */
+@media (max-width: 768px) {
+  /* Hide nav-sidebar on mobile to save space, or make it horizontal at the bottom */
+  .app-container {
+    flex-direction: column !important;
+  }
+  
+  .nav-sidebar {
+    width: 100% !important;
+    height: 60px !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    padding: 0 !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+    order: 2; /* Bottom tab bar navigation! */
+  }
+
+  .nav-logo {
+    display: none !important; /* Hide logo on mobile tab bar */
+  }
+
+  .nav-item {
+    width: auto !important;
+    height: 100% !important;
+    margin-bottom: 0 !important;
+    flex: 1 !important;
+    border-left: none !important;
+    border-bottom: 3px solid transparent !important;
+  }
+
+  .nav-item.active {
+    border-left: none !important;
+    border-bottom: 3px solid var(--primary) !important;
+    border-radius: 0 !important;
+  }
+
+  /* List and Details Layout */
+  .list-panel {
+    width: 100% !important;
+    flex: 1 !important;
+  }
+
+  /* If a device is selected, hide the list panel and show the details panel full screen */
+  .has-selected-device .list-panel {
+    display: none !important;
+  }
+
+  .details-panel {
+    width: 100% !important;
+    flex: 1 !important;
+  }
+
+  .mobile-back-button {
+    display: flex !important; /* Show back button on mobile */
+  }
+
+  .details-content {
+    padding: 16px !important; /* Less padding on mobile */
+  }
+
+  .device-header-large {
+    gap: 16px !important;
+    margin-bottom: 24px !important;
+  }
+
+  .device-header-large h2 {
+    font-size: 1.4rem !important;
+  }
+
+  /* Connection tool area (screen / files) */
+  .details-panel[style*="flex-direction: row"],
+  .details-panel[style*="flex-direction:row"] {
+    flex-direction: column !important; /* Stack screen and file tool vertical on mobile */
+  }
+
+  /* Forms & Tabs on mobile */
+  .tab-headers {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* Mobile Controls Bar for Screen Viewer */
+  .mobile-controls-bar {
+    display: flex !important;
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13, 19, 35, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 8px 16px;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
+  .mobile-control-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    outline: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+  }
+
+  .mobile-control-btn:active {
+    background: var(--primary);
+  }
+
+  .mobile-control-btn.active {
+    background: var(--accent);
+    color: black;
+  }
+}

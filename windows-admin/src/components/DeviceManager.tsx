@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X, Pin, ArrowUpDown } from 'lucide-react';
+import { MonitorSmartphone, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ChevronLeft, Folder, Monitor, FolderUp, WifiOff, Smartphone, LogOut, Cpu, HardDrive, FileText, CheckCircle2, Search, X, Pin, ArrowUpDown } from 'lucide-react';
 
 import ScreenViewer from './ScreenViewer';
 import FileManager from './FileManager';
@@ -1102,6 +1102,7 @@ export default function DeviceManager({
                 onMouseEvent={onMouseEvent} 
                 onKeyEvent={onKeyEvent} 
                 platform={selectedDevice.platform === 'manual' ? undefined : selectedDevice.platform}
+                onDisconnect={onDisconnect}
               />
             )}
             {activeTool === 'files' && (
@@ -1170,6 +1171,25 @@ export default function DeviceManager({
     return (
       <div className="details-panel">
         <div className="details-content">
+          <button 
+            className="mobile-back-button"
+            onClick={() => setSelectedDevice(null)}
+            style={{
+              display: 'none',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              marginBottom: '16px',
+              padding: '8px 0',
+              outline: 'none'
+            }}
+          >
+            <ChevronLeft size={18} /> Volver a la lista
+          </button>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div className="device-header-large">
               <div className="icon-wrapper">
@@ -1497,7 +1517,7 @@ export default function DeviceManager({
   };
 
   return (
-    <div style={{ display: 'flex', flex: 1, width: '100%', height: '100%' }}>
+    <div className={`device-manager-layout ${selectedDevice ? 'has-selected-device' : ''}`} style={{ display: 'flex', flex: 1, width: '100%', height: '100%' }}>
       {(!isConnected || activeTool === null) && renderList()}
       {renderDetails()}
     </div>

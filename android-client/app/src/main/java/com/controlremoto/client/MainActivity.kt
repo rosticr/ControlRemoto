@@ -178,6 +178,30 @@ class MainActivity : Activity() {
         }
         layoutDashboard.addView(btnFiles)
 
+        // Botón para ingresar a la Consola de Administración (Modo Administrador)
+        val btnAdmin = Button(this).apply {
+            text = "🔧 ABRIR CONSOLA DE ADMIN"
+            backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF5722"))
+            setTextColor(android.graphics.Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            val density = resources.displayMetrics.density
+            val heightPx = (60 * density).toInt()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                heightPx
+            ).apply {
+                setMargins(0, 0, 0, (16 * density).toInt())
+            }
+        }
+        btnAdmin.setOnClickListener {
+            val serverUrl = prefs.getString("server_url", "https://acceso.rosti.cr")
+            val intent = Intent(this, AdminConsoleActivity::class.java).apply {
+                putExtra("URL", "$serverUrl/admin")
+            }
+            startActivity(intent)
+        }
+        layoutDashboard.addView(btnAdmin)
+
         btnSettings.setOnClickListener {
             val isRemote = prefs.getBoolean("use_remote", false)
             val options = arrayOf("☁️ Servidor Remoto (Nube)", "💻 Servidor Local (Auto-Detección)")
