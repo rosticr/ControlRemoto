@@ -232,27 +232,28 @@ export default function DeviceManager({
       const onlineDev = onlineDevicesDetails.find(o => o.roomId === d.id);
       if (onlineDev && onlineDev.specs) {
         const specs = onlineDev.specs;
-        if (
-          d.marca !== specs.marca ||
-          d.modelo !== specs.modelo ||
-          d.serie !== specs.serie ||
-          d.disco !== specs.disco ||
-          d.so !== specs.so ||
-          d.procesador !== specs.cpu ||
-          d.ram !== specs.ram ||
-          d.version !== specs.clientVersion
-        ) {
+        const hasSpecChanges = 
+          (specs.marca !== undefined && d.marca !== specs.marca) ||
+          (specs.modelo !== undefined && d.modelo !== specs.modelo) ||
+          (specs.serie !== undefined && d.serie !== specs.serie) ||
+          (specs.disco !== undefined && d.disco !== specs.disco) ||
+          (specs.so !== undefined && d.so !== specs.so) ||
+          (specs.cpu !== undefined && d.procesador !== specs.cpu) ||
+          (specs.ram !== undefined && d.ram !== specs.ram) ||
+          (specs.clientVersion !== undefined && d.version !== specs.clientVersion);
+
+        if (hasSpecChanges) {
           hasChanges = true;
           return {
             ...d,
-            marca: d.marca || specs.marca,
-            modelo: d.modelo || specs.modelo,
-            serie: d.serie || specs.serie,
-            disco: d.disco || specs.disco,
-            so: d.so || specs.so,
-            procesador: d.procesador || specs.cpu,
-            ram: d.ram || specs.ram,
-            version: specs.clientVersion || d.version,
+            marca: specs.marca !== undefined ? specs.marca : d.marca,
+            modelo: specs.modelo !== undefined ? specs.modelo : d.modelo,
+            serie: specs.serie !== undefined ? specs.serie : d.serie,
+            disco: specs.disco !== undefined ? specs.disco : d.disco,
+            so: specs.so !== undefined ? specs.so : d.so,
+            procesador: specs.cpu !== undefined ? specs.cpu : d.procesador,
+            ram: specs.ram !== undefined ? specs.ram : d.ram,
+            version: specs.clientVersion !== undefined ? specs.clientVersion : d.version,
             updatedAt: new Date().toISOString()
           };
         }
