@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Screen source fetching
   getScreenSources: () => ipcRenderer.invoke('get-screen-sources'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
   // Config management
   loadConfig: () => ipcRenderer.invoke('load-config'),
@@ -123,11 +124,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     socket.on('connect', () => {
       window.dispatchEvent(new CustomEvent('socket-connected'));
-      getSystemSpecs((specs) => {
+      getSystemSpecs(async (specs) => {
+        let appVersion = 'N/A';
+        try {
+          appVersion = await ipcRenderer.invoke('get-app-version');
+        } catch (e) {
+          console.error("Error fetching app version:", e);
+        }
         const enrichedSpecs = {
           ...specs,
           name: deviceName,
-          group: group
+          group: group,
+          clientVersion: appVersion
         };
         socket.emit('register-device', deviceId, enrichedSpecs);
       });

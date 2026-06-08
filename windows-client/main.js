@@ -237,6 +237,11 @@ ipcMain.handle('get-screen-sources', async () => {
   }));
 });
 
+// IPC Handler - Get current app version from package.json
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 // IPC Handler - Load & Save Settings
 ipcMain.handle('load-config', () => {
   return loadConfig();

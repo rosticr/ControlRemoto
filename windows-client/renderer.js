@@ -146,6 +146,17 @@ async function startApp() {
   deviceNameInput.value = config.deviceName || window.electronAPI.getHostName();
   runStartupCheck.checked = config.runOnStartup;
 
+  // Set version dynamically in the footer
+  try {
+    const appVersion = await window.electronAPI.getAppVersion();
+    const versionEl = document.getElementById('app-version');
+    if (versionEl) {
+      versionEl.innerText = `v${appVersion}`;
+    }
+  } catch (e) {
+    console.error("Error setting version in UI:", e);
+  }
+
   await loadGroupsFromServer(config.serverUrl, config.group);
   updateViewMode();
 

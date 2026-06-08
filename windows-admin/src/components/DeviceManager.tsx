@@ -39,6 +39,7 @@ interface SavedDevice {
   responsable?: string;
   notas?: string;
   estado?: 'Activo' | 'En Bodega' | 'Mantenimiento' | 'Dado de Baja';
+  version?: string;
   updatedAt?: string;
 }
 
@@ -162,6 +163,7 @@ export default function DeviceManager({
   const [editRAM, setEditRAM] = useState('');
   const [editCPU, setEditCPU] = useState('');
   const [editSO, setEditSO] = useState('');
+  const [editVersion, setEditVersion] = useState('');
 
   // Populate edit states when selectedDevice changes
   useEffect(() => {
@@ -178,6 +180,7 @@ export default function DeviceManager({
       setEditRAM(selectedDevice.ram || '');
       setEditCPU(selectedDevice.procesador || '');
       setEditSO(selectedDevice.so || '');
+      setEditVersion(selectedDevice.version || '');
     }
   }, [selectedDevice]);
 
@@ -217,6 +220,7 @@ export default function DeviceManager({
           so: o.specs?.so || undefined,
           procesador: o.specs?.cpu || undefined,
           ram: o.specs?.ram || undefined,
+          version: o.specs?.clientVersion || undefined,
           estado: 'Activo',
           updatedAt: new Date().toISOString()
         });
@@ -235,7 +239,8 @@ export default function DeviceManager({
           d.disco !== specs.disco ||
           d.so !== specs.so ||
           d.procesador !== specs.cpu ||
-          d.ram !== specs.ram
+          d.ram !== specs.ram ||
+          d.version !== specs.clientVersion
         ) {
           hasChanges = true;
           return {
@@ -247,6 +252,7 @@ export default function DeviceManager({
             so: d.so || specs.so,
             procesador: d.procesador || specs.cpu,
             ram: d.ram || specs.ram,
+            version: specs.clientVersion || d.version,
             updatedAt: new Date().toISOString()
           };
         }
@@ -293,6 +299,7 @@ export default function DeviceManager({
       ram: editRAM.trim(),
       procesador: editCPU.trim(),
       so: editSO.trim(),
+      version: editVersion.trim(),
       updatedAt: new Date().toISOString()
     };
     
@@ -888,7 +895,9 @@ export default function DeviceManager({
                                     <p>
                                       {device.platform === 'manual' 
                                         ? (device.estado || 'Activo') 
-                                        : (isOnline ? 'En línea' : 'Desconectado')}
+                                        : (isOnline 
+                                          ? `En línea${device.version ? ` (${device.version})` : ''}` 
+                                          : 'Desconectado')}
                                     </p>
                                   </div>
                                 </div>
@@ -1178,7 +1187,7 @@ export default function DeviceManager({
                   {selectedDevice.platform === 'manual' ? (
                     <span className="status-badge" style={{ background: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8' }}>Activo Pasivo ({selectedDevice.estado || 'Activo'})</span>
                   ) : isOnline ? (
-                    <span className="status-badge">En línea</span>
+                    <span className="status-badge">En línea {selectedDevice.version ? `(${selectedDevice.version})` : ''}</span>
                   ) : (
                     <span className="status-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>Desconectado</span>
                   )}
@@ -1440,6 +1449,15 @@ export default function DeviceManager({
                         type="text" 
                         value={editSO} 
                         onChange={(e) => setEditSO(e.target.value)} 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Versión de Agente</span>
+                      <input 
+                        type="text" 
+                        value={editVersion} 
+                        onChange={(e) => setEditVersion(e.target.value)} 
                         style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', outline: 'none' }}
                       />
                     </div>
