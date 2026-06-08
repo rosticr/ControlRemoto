@@ -58,6 +58,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ingresa tu usuario"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
               autoFocus
             />
           </div>
