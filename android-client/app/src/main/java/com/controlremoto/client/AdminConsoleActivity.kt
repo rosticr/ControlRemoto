@@ -36,11 +36,17 @@ class AdminConsoleActivity : Activity() {
         settings.domStorageEnabled = true
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.mediaPlaybackRequiresUserGesture = false
+        settings.cacheMode = WebSettings.LOAD_NO_CACHE // Force loading from network
 
-        // Enable pinch-to-zoom
+        // Enable pinch-to-zoom (also implemented in React CSS/JS layout)
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
+
+        // Ensure webView can receive focus and input
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        webView.clearCache(true) // Clear cache on startup to prevent stale pages
 
         // Add JavaScript-Java Bridge to trigger soft keyboard programmatically
         webView.addJavascriptInterface(object {
@@ -48,8 +54,13 @@ class AdminConsoleActivity : Activity() {
             fun showKeyboard() {
                 runOnUiThread {
                     webView.requestFocus()
+                    webView.requestFocusFromTouch()
                     val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    imm.toggleSoftInput(android.view.inputmethod.InputMethodManager.SHOW_FORCED, 0)
+                    // Try to show soft input implicitly, if that fails, force toggle it
+                    val success = imm.showSoftInput(webView, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    if (!success) {
+                        imm.toggleSoftInput(android.view.inputmethod.InputMethodManager.SHOW_FORCED, 0)
+                    }
                 }
             }
         }, "AndroidBridge")

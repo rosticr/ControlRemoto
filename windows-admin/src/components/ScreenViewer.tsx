@@ -15,6 +15,92 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRightClickMode, setIsRightClickMode] = useState(false);
 
+  // States and refs for touch pinch-to-zoom and panning
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const touchStartRef = useRef({
+    distance: 0,
+    scale: 1,
+    x: 0,
+    y: 0,
+    posX: 0,
+    posY: 0,
+    isPinching: false
+  });
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      // Single finger: panning
+      const touch = e.touches[0];
+      touchStartRef.current = {
+        ...touchStartRef.current,
+        x: touch.clientX,
+        y: touch.clientY,
+        posX: position.x,
+        posY: position.y,
+        isPinching: false
+      };
+    } else if (e.touches.length === 2) {
+      // Two fingers: pinch zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      touchStartRef.current = {
+        ...touchStartRef.current,
+        distance: dist,
+        scale: scale,
+        posX: position.x,
+        posY: position.y,
+        isPinching: true
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && !touchStartRef.current.isPinching) {
+      if (scale > 1) {
+        // Only allow scroll/pan on remote screen if zoomed in
+        e.preventDefault();
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        
+        // Calculate translation relative to zoom scale factor
+        const newX = touchStartRef.current.posX + dx / scale;
+        const newY = touchStartRef.current.posY + dy / scale;
+
+        // Cap pan boundaries based on current scale to prevent dragging video off screen
+        const maxPanX = (scale - 1) * 180;
+        const maxPanY = (scale - 1) * 180;
+
+        setPosition({
+          x: Math.min(Math.max(newX, -maxPanX), maxPanX),
+          y: Math.min(Math.max(newY, -maxPanY), maxPanY)
+        });
+      }
+    } else if (e.touches.length === 2) {
+      // Pinching
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      const factor = dist / touchStartRef.current.distance;
+      const newScale = Math.min(Math.max(touchStartRef.current.scale * factor, 1), 5);
+      setScale(newScale);
+      
+      // If scale returns to 1, reset panning coordinates
+      if (newScale === 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 0) {
+      touchStartRef.current.isPinching = false;
+    }
+  };
+
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
@@ -157,7 +243,18 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   return (
     <div 
       className={`screen-viewer ${platform === 'windows' ? 'platform-windows' : 'platform-android'} ${isFullscreen ? 'fullscreen' : ''}`}
-      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%', position: 'relative' }}
+      style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100%', 
+        width: '100%', 
+        position: 'relative',
+        overflow: 'hidden' // Clip scaled content
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {stream ? (
         <>
@@ -169,7 +266,10 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               width: '100%', 
               height: '100%', 
               objectFit: 'contain',
-              touchAction: 'none'
+              touchAction: 'none',
+              transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+              transformOrigin: 'center center',
+              transition: scale === 1 ? 'transform 0.2s ease-out' : 'none'
             }}
             onPointerDown={(e) => handlePointerEvent(e, 'down')}
             onPointerUp={(e) => handlePointerEvent(e, 'up')}
@@ -186,12 +286,16 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onKeyDown={handleKeyboardKeyDown}
             style={{
               position: 'absolute',
-              top: '-100px',
-              left: '-100px',
-              width: '1px',
-              height: '1px',
-              opacity: 0,
-              pointerEvents: 'none'
+              bottom: '12px',
+              right: '12px',
+              width: '30px',
+              height: '30px',
+              opacity: 0.01,
+              border: 'none',
+              background: 'transparent',
+              color: 'transparent',
+              pointerEvents: 'auto',
+              zIndex: 1000
             }}
           />
 

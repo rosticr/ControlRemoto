@@ -172,6 +172,7 @@ function authenticateToken(req, res, next) {
 
 // Descarga directa pública del último APK (para Downloader)
 app.get('/app.apk', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
   const history = loadApkHistory();
   if (history.length === 0) {
     // Fallback por si hay un app.apk estático
@@ -200,7 +201,17 @@ app.get('/app.apk', (req, res) => {
 
 // Redirección corta mediante número para Downloader (ej: acceso.rosti.cr/1)
 app.get('/1', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
   res.redirect('/app.apk');
+});
+
+// Middleware para evitar que navegadores/WebView guarden caché del index de la consola
+app.use((req, res, next) => {
+  const url = req.path;
+  if (url === '/admin' || url === '/admin/' || url.endsWith('/index.html')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+  }
+  next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
