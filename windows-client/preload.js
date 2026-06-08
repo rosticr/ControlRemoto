@@ -116,8 +116,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log(`Preload connecting to signaling server: ${url} for room: ${deviceId}`);
     socket = io(url, {
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
     });
 
     socket.on('connect', () => {
@@ -133,11 +134,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
 
     socket.on('connect_error', (err) => {
-      window.dispatchEvent(new CustomEvent('socket-connect-error', { detail: err.message }));
+      window.dispatchEvent(new CustomEvent('socket-connect-error', { 
+        detail: { message: err.message, active: socket ? socket.active : false } 
+      }));
     });
 
     socket.on('disconnect', (reason) => {
-      window.dispatchEvent(new CustomEvent('socket-disconnected', { detail: reason }));
+      window.dispatchEvent(new CustomEvent('socket-disconnected', { 
+        detail: { reason: reason, active: socket ? socket.active : false } 
+      }));
     });
 
     socket.on('offer', (offer) => {

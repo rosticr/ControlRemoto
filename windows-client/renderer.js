@@ -250,14 +250,22 @@ window.addEventListener('socket-connected', () => {
 });
 
 window.addEventListener('socket-connect-error', (e) => {
-  console.error("Socket connection error:", e.detail);
-  updateConnectionUI('disconnected');
+  console.error("Socket connection error:", e.detail.message);
+  if (e.detail.active) {
+    updateConnectionUI('connecting');
+  } else {
+    updateConnectionUI('disconnected');
+  }
 });
 
 window.addEventListener('socket-disconnected', (e) => {
-  console.log("Socket disconnected:", e.detail);
-  updateConnectionUI('disconnected');
+  console.log("Socket disconnected:", e.detail.reason);
   closeWebRTC();
+  if (e.detail.active) {
+    updateConnectionUI('connecting');
+  } else {
+    updateConnectionUI('disconnected');
+  }
 });
 
 // Handle WebRTC Offer
