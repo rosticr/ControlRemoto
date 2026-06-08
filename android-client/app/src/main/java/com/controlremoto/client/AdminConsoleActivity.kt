@@ -37,6 +37,23 @@ class AdminConsoleActivity : Activity() {
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.mediaPlaybackRequiresUserGesture = false
 
+        // Enable pinch-to-zoom
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = true
+        settings.displayZoomControls = false
+
+        // Add JavaScript-Java Bridge to trigger soft keyboard programmatically
+        webView.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun showKeyboard() {
+                runOnUiThread {
+                    webView.requestFocus()
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.toggleSoftInput(android.view.inputmethod.InputMethodManager.SHOW_FORCED, 0)
+                }
+            }
+        }, "AndroidBridge")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 return false // Handle navigation inside WebView

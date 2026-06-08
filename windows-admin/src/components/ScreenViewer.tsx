@@ -144,6 +144,14 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     if (keyboardInputRef.current) {
       keyboardInputRef.current.focus();
     }
+    const bridge = (window as any).AndroidBridge;
+    if (bridge && typeof bridge.showKeyboard === 'function') {
+      try {
+        bridge.showKeyboard();
+      } catch (e) {
+        console.error("Error calling AndroidBridge.showKeyboard:", e);
+      }
+    }
   };
 
   return (
