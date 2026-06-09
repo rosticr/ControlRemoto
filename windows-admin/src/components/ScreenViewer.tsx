@@ -240,6 +240,22 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     }
   };
 
+  const preventPropagation = (e: React.SyntheticEvent | React.TouchEvent | React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const stopPropagationProps = {
+    onPointerDown: preventPropagation,
+    onPointerUp: preventPropagation,
+    onPointerMove: preventPropagation,
+    onMouseDown: preventPropagation,
+    onMouseUp: preventPropagation,
+    onClick: preventPropagation,
+    onTouchStart: preventPropagation,
+    onTouchMove: preventPropagation,
+    onTouchEnd: preventPropagation,
+  };
+
   return (
     <div 
       className={`screen-viewer ${platform === 'windows' ? 'platform-windows' : 'platform-android'} ${isFullscreen ? 'fullscreen' : ''}`}
@@ -300,7 +316,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
           />
 
           {/* Mobile Floating Overlay Controls (visible only on mobile) */}
-          <div className="mobile-controls-bar" style={{ display: 'none' }}>
+          <div className="mobile-controls-bar" style={{ display: 'none' }} {...stopPropagationProps}>
             <button 
               className="mobile-control-btn"
               onClick={triggerMobileKeyboard}
@@ -349,7 +365,8 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
           </div>
 
           <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
+            {...stopPropagationProps}
+            onClick={(e) => { e.stopPropagation(); setIsFullscreen(!isFullscreen); }}
             className="fullscreen-toggle-btn"
             title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
           >

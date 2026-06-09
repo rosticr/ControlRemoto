@@ -650,14 +650,25 @@ button:disabled {
     color: white;
     width: 40px;
     height: 40px;
+    min-width: 40px !important;
+    min-height: 40px !important;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     outline: none;
-    font-size: 1.2rem;
     transition: background 0.2s;
+  }
+
+  .mobile-control-btn svg {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    stroke: currentColor !important;
+    fill: none !important;
+    display: inline-block !important;
   }
 
   .mobile-control-btn:active {
