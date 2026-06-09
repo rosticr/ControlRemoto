@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Monitor, Users, LogOut, ChevronLeft, ClipboardList } from 'lucide-react';
+import { Monitor, Users, LogOut, ChevronLeft, ClipboardList, Mail } from 'lucide-react';
 import DeviceManager from './components/DeviceManager';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
 import Login from './components/Login';
 import UsersManager from './components/UsersManager';
 import AssetReport from './components/AssetReport';
+import MonitoringManager from './components/MonitoringManager';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,7 +18,7 @@ function App() {
   const [roomId, setRoomId] = useState('');
   
   // New Navigation State
-  const [activeView, setActiveView] = useState<'devices' | 'users' | 'assets'>('devices');
+  const [activeView, setActiveView] = useState<'devices' | 'users' | 'assets' | 'monitoring'>('devices');
   const [onlineDevicesDetails, setOnlineDevicesDetails] = useState<any[]>([]);
   
   const [currentUser, setCurrentUser] = useState({ username: '', role: '', token: '' });
@@ -271,6 +272,13 @@ function App() {
                 <ClipboardList size={22} />
                 <span>Activos</span>
               </div>
+              <div 
+                className={`nav-item ${activeView === 'monitoring' ? 'active' : ''}`}
+                onClick={() => setActiveView('monitoring')}
+              >
+                <Mail size={22} />
+                <span>Monitoreo</span>
+              </div>
             </>
           )}
    
@@ -319,6 +327,12 @@ function App() {
             onlineDevicesDetails={onlineDevicesDetails} 
             onBackToDevices={() => setActiveView('devices')} 
           />
+        </div>
+      )}
+
+      {activeView === 'monitoring' && currentUser.role === 'admin' && (
+        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+          <MonitoringManager serverUrl={currentServerUrl} token={currentUser.token} />
         </div>
       )}
     </div>

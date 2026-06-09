@@ -6,6 +6,7 @@ const path = require('path');
 const dgram = require('dgram');
 const fs = require('fs');
 const multer = require('multer');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -444,6 +445,279 @@ app.post('/api/pinned-groups', authenticateToken, (req, res) => {
   res.json({ success: true, pinned });
 });
 
+// ==========================================
+// CONFIGURACIÓN Y MONITOREO POR CORREO (SMTP)
+// ==========================================
+const EMAIL_CONFIG_FILE = path.join(PERSIST_DIR, 'email_config.json');
+
+function loadEmailConfig() {
+  if (!fs.existsSync(EMAIL_CONFIG_FILE)) {
+    const defaultConfig = {
+      enabled: false,
+      host: '',
+      port: 587,
+      secure: false,
+      user: '',
+      pass: '',
+      from: '',
+      to: '',
+      frequencyHours: 4
+    };
+    fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
+    return defaultConfig;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(EMAIL_CONFIG_FILE, 'utf8'));
+  } catch (e) {
+    return {
+      enabled: false,
+      host: '',
+      port: 587,
+      secure: false,
+      user: '',
+      pass: '',
+      from: '',
+      to: '',
+      frequencyHours: 4
+    };
+  }
+}
+
+function saveEmailConfig(config) {
+  fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+function getOfflineDevices() {
+  const allDevices = loadDevices();
+  const connectedRoomIds = new Set(
+    Array.from(connectedDevices.values())
+      .filter(d => d.isAndroid || d.isWindows)
+      .map(d => d.roomId)
+  );
+
+  return allDevices.filter(d => {
+    if (d.platform === 'manual') return false;
+    return !connectedRoomIds.has(d.id);
+  });
+}
+
+async function sendEmail(config, subject, text, html) {
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: parseInt(config.port, 10) || 587,
+    secure: config.secure, // true para puerto 465, false para otros
+    auth: {
+      user: config.user,
+      pass: config.pass
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+
+  const mailOptions = {
+    from: config.from || `"RostiControl" <${config.user}>`,
+    to: config.to,
+    subject: subject,
+    text: text,
+    html: html
+  };
+
+  return await transporter.sendMail(mailOptions);
+}
+
+async function sendOfflineReportEmail(isManual = false) {
+  const config = loadEmailConfig();
+  if (!config.enabled || !config.host || !config.to) {
+    if (isManual) {
+      throw new Error("El monitoreo por correo no está completamente configurado u habilitado.");
+    }
+    console.log("Envío de reporte automático de correo omitido (desactivado o no configurado).");
+    return;
+  }
+
+  const offlineDevices = getOfflineDevices();
+  if (offlineDevices.length === 0 && !isManual) {
+    console.log("No hay equipos fuera de línea. Reporte de correo automático omitido.");
+    return;
+  }
+
+  const subject = offlineDevices.length === 0 
+    ? `✅ Reporte de Monitoreo: Todos los equipos en línea`
+    : `⚠️ Reporte de Monitoreo: ${offlineDevices.length} equipos fuera de línea`;
+
+  let html = '';
+  let text = '';
+
+  if (offlineDevices.length === 0) {
+    html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #16a34a; margin-top: 0;">✅ Monitoreo RostiControl: Todo Excelente</h2>
+        <p>Todos los equipos registrados se encuentran actualmente <b>en línea</b> y operando correctamente.</p>
+        <p style="margin-top: 24px; font-size: 0.85em; color: #888;">
+          Generado el: ${new Date().toLocaleString('es-CR')}
+        </p>
+      </div>
+    `;
+    text = `Monitoreo RostiControl: Todos los equipos se encuentran en línea.`;
+  } else {
+    let rowsHtml = '';
+    offlineDevices.forEach(d => {
+      const lastUpdate = d.updatedAt ? new Date(d.updatedAt).toLocaleString('es-CR') : 'N/D';
+      rowsHtml += `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;"><b>${escapeHtml(d.name)}</b></td>
+          <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace;">${escapeHtml(d.id)}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(d.group || 'Sin Grupo')}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(d.platform || 'android')}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; font-size: 0.85em; color: #666;">${lastUpdate}</td>
+        </tr>
+      `;
+    });
+
+    html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #ef4444; margin-top: 0;">⚠️ Alerta de Monitoreo RostiControl</h2>
+        <p>Se han detectado los siguientes equipos <b>fuera de línea</b> en la consola:</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+          <thead>
+            <tr style="background-color: #f8fafc; text-align: left;">
+              <th style="padding: 8px; border: 1px solid #ddd;">Nombre</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">ID de Sala</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">Grupo</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">Plataforma</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">Último Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        
+        <p style="margin-top: 24px; font-size: 0.85em; color: #888;">
+          Este reporte fue generado de forma ${isManual ? 'manual' : 'automática'}. Frecuencia programada: cada ${config.frequencyHours} horas.
+        </p>
+      </div>
+    `;
+
+    text = `Reporte de Monitoreo RostiControl: ${offlineDevices.length} equipos fuera de línea.\n\n` + 
+      offlineDevices.map(d => `- ${d.name} (${d.id}) - Grupo: ${d.group || 'Sin Grupo'}`).join('\n');
+  }
+
+  await sendEmail(config, subject, text, html);
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+let emailIntervalId = null;
+
+function setupEmailScheduler() {
+  if (emailIntervalId) {
+    clearInterval(emailIntervalId);
+    emailIntervalId = null;
+  }
+
+  const config = loadEmailConfig();
+  if (!config.enabled || !config.frequencyHours || !config.host || !config.to) {
+    console.log("Monitoreo por correo desactivado o incompleto.");
+    return;
+  }
+
+  const hours = parseFloat(config.frequencyHours) || 4;
+  const intervalMs = hours * 60 * 60 * 1000;
+  console.log(`Programando reporte de correo cada ${hours} horas (${intervalMs} ms)`);
+  
+  emailIntervalId = setInterval(async () => {
+    try {
+      console.log("Ejecutando envío automático de reporte de monitoreo por correo...");
+      await sendOfflineReportEmail();
+    } catch (e) {
+      console.error("Error al enviar reporte de correo automático:", e);
+    }
+  }, intervalMs);
+}
+
+// Endpoints REST para Monitoreo por Correo (solo Administradores)
+app.get('/api/email-config', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado.' });
+  }
+  const config = loadEmailConfig();
+  const responseConfig = { ...config };
+  if (config.pass) {
+    responseConfig.pass = '********';
+  }
+  res.json(responseConfig);
+});
+
+app.post('/api/email-config', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado.' });
+  }
+  const newConfig = req.body;
+  const oldConfig = loadEmailConfig();
+  if (newConfig.pass === '********') {
+    newConfig.pass = oldConfig.pass;
+  }
+  
+  saveEmailConfig(newConfig);
+  setupEmailScheduler();
+  res.json({ success: true });
+});
+
+app.post('/api/email-config/test', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado.' });
+  }
+  
+  const testConfig = req.body;
+  const oldConfig = loadEmailConfig();
+  if (testConfig.pass === '********') {
+    testConfig.pass = oldConfig.pass;
+  }
+
+  try {
+    const subject = "🧪 RostiControl: Correo de prueba de monitoreo";
+    const text = "Este es un correo de prueba para validar tu configuración SMTP en RostiControl.";
+    const html = `
+      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h3 style="color: #2563eb; margin-top: 0;">🧪 Prueba de Conexión Exitosa</h3>
+        <p>¡Hola! Este correo confirma que tu configuración SMTP en RostiControl funciona correctamente.</p>
+        <p style="font-size: 0.85em; color: #666; margin-top: 20px;">Generado el: ${new Date().toLocaleString('es-CR')}</p>
+      </div>
+    `;
+    await sendEmail(testConfig, subject, text, html);
+    res.json({ success: true, message: 'Correo de prueba enviado correctamente' });
+  } catch (err) {
+    console.error("Error al enviar correo de prueba:", err);
+    res.status(500).json({ error: err.message || 'Error al enviar correo de prueba' });
+  }
+});
+
+app.post('/api/email-config/send-report', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado.' });
+  }
+  
+  try {
+    await sendOfflineReportEmail(true);
+    res.json({ success: true, message: 'Reporte de equipos fuera de línea enviado con éxito' });
+  } catch (err) {
+    console.error("Error al enviar reporte manual:", err);
+    res.status(500).json({ error: err.message || 'Error al enviar reporte por correo' });
+  }
+});
+
 // Endpoint para eliminar versión (solo Administradores)
 app.delete('/api/delete-apk/:version', authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') {
@@ -703,4 +977,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor de señalización escuchando en puerto ${PORT}`);
   console.log(`Diagnóstico: http://localhost:${PORT}/status`);
   console.log(`========================================`);
+  
+  // Inicializar programador de correo de monitoreo
+  setupEmailScheduler();
 });
