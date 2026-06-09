@@ -63,6 +63,14 @@ class AdminConsoleActivity : Activity() {
                     }
                 }
             }
+
+            @android.webkit.JavascriptInterface
+            fun hideKeyboard() {
+                runOnUiThread {
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(webView.windowToken, 0)
+                }
+            }
         }, "AndroidBridge")
 
         webView.webViewClient = object : WebViewClient() {

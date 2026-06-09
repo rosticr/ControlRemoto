@@ -108,6 +108,9 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   }, [stream]);
 
   const handlePointerEvent = (e: React.PointerEvent<HTMLVideoElement>, type: string) => {
+    if (type === 'down') {
+      e.preventDefault(); // Keep focus on the virtual keyboard input
+    }
     const video = e.currentTarget;
     const rect = video.getBoundingClientRect();
     
@@ -228,14 +231,26 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
   const triggerMobileKeyboard = () => {
     if (keyboardInputRef.current) {
-      keyboardInputRef.current.focus();
-    }
-    const bridge = (window as any).AndroidBridge;
-    if (bridge && typeof bridge.showKeyboard === 'function') {
-      try {
-        bridge.showKeyboard();
-      } catch (e) {
-        console.error("Error calling AndroidBridge.showKeyboard:", e);
+      if (document.activeElement === keyboardInputRef.current) {
+        keyboardInputRef.current.blur();
+        const bridge = (window as any).AndroidBridge;
+        if (bridge && typeof bridge.hideKeyboard === 'function') {
+          try {
+            bridge.hideKeyboard();
+          } catch (e) {}
+        }
+      } else {
+        keyboardInputRef.current.focus();
+        setTimeout(() => {
+          const bridge = (window as any).AndroidBridge;
+          if (bridge && typeof bridge.showKeyboard === 'function') {
+            try {
+              bridge.showKeyboard();
+            } catch (e) {
+              console.error("Error calling AndroidBridge.showKeyboard:", e);
+            }
+          }
+        }, 100);
       }
     }
   };

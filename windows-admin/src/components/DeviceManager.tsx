@@ -493,8 +493,8 @@ export default function DeviceManager({
             localStorage.setItem('rosti_saved_groups', JSON.stringify(mergedGroups));
             setIsGroupsLoadedFromServer(true);
             
-            // If the server lacks any of our local groups, sync back to server
-            const needsSync = mergedGroups.some(g => !serverGroups.includes(g));
+            // If the merged groups differ from the server groups (in elements or order), sync back to server
+            const needsSync = JSON.stringify(mergedGroups) !== JSON.stringify(serverGroups);
             if (needsSync && token) {
               syncGroupsWithServer(mergedGroups);
             }
