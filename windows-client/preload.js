@@ -160,6 +160,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     socket.on('ice-candidate', (candidate) => {
       window.dispatchEvent(new CustomEvent('socket-ice-candidate', { detail: candidate }));
     });
+
+    socket.on('user-disconnected', () => {
+      window.dispatchEvent(new CustomEvent('socket-user-disconnected'));
+    });
   },
 
   disconnectSocket: () => {

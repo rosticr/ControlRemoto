@@ -118,13 +118,14 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   };
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+    const videoElement = videoRef.current;
+    if (videoElement) {
+      videoElement.srcObject = stream;
       if (!stream) {
         try {
-          videoRef.current.pause();
-          videoRef.current.src = "";
-          videoRef.current.load();
+          videoElement.pause();
+          videoElement.src = "";
+          videoElement.load();
         } catch (e) {}
       }
     }
@@ -132,6 +133,17 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     scaleRef.current = 1;
     positionRef.current = { x: 0, y: 0 };
     updateVideoTransform();
+
+    return () => {
+      if (videoElement) {
+        try {
+          videoElement.pause();
+          videoElement.srcObject = null;
+          videoElement.src = "";
+          videoElement.load();
+        } catch (e) {}
+      }
+    };
   }, [stream]);
 
   const sendMouseEventAtPointer = (clientX: number, clientY: number, button: number, video: HTMLVideoElement, type: string) => {

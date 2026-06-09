@@ -279,6 +279,11 @@ window.addEventListener('socket-disconnected', (e) => {
   }
 });
 
+window.addEventListener('socket-user-disconnected', () => {
+  console.log("Admin disconnected from room. Closing WebRTC session.");
+  closeWebRTC();
+});
+
 // Handle WebRTC Offer
 window.addEventListener('socket-offer', async (e) => {
   const offer = e.detail;
