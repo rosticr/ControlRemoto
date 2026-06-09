@@ -172,7 +172,11 @@ function App() {
   };
 
   const disconnect = () => {
-    if (socket) {
+    if (socket && roomId) {
+      socket.emit('leave-room', roomId);
+      socket.off('answer');
+      socket.off('ice-candidate');
+    } else if (socket) {
       socket.off('answer');
       socket.off('ice-candidate');
     }

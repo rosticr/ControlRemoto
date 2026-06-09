@@ -285,6 +285,14 @@ export default function DeviceManager({
     }
   }, [onlineDevicesDetails, savedDevices, savedGroups, selectedDevice, isGroupsLoadedFromServer]);
 
+  // If we select a different device while connected, disconnect the active session
+  useEffect(() => {
+    if (isConnected && connectedRoomId && selectedDevice && selectedDevice.id !== connectedRoomId) {
+      setActiveTool(null);
+      onDisconnect();
+    }
+  }, [selectedDevice, isConnected, connectedRoomId, onDisconnect]);
+
   // Save modified asset details
   const saveAssetDetails = () => {
     if (!selectedDevice) return;
@@ -1300,7 +1308,11 @@ export default function DeviceManager({
         <div className="details-content">
           <button 
             className="mobile-back-button"
-            onClick={() => setSelectedDevice(null)}
+            onClick={() => {
+              setActiveTool(null);
+              onDisconnect();
+              setSelectedDevice(null);
+            }}
             style={{
               display: 'none',
               alignItems: 'center',

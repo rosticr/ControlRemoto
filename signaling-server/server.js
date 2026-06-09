@@ -627,6 +627,25 @@ io.on('connection', (socket) => {
     console.log(`[${ts()}] user-connected emitido a sala ${roomId}`);
   });
 
+  // Admin saliendo de sala
+  socket.on('leave-room', (roomId) => {
+    console.log(`[${ts()}] LEAVE-ROOM: socket=${socket.id} sala=${roomId}`);
+    socket.leave(roomId);
+    
+    // Restaurar estado del socket en connectedDevices si estaba logueado
+    if (socket.user) {
+      connectedDevices.set(socket.id, {
+        id: socket.id,
+        status: `Admin ${socket.user.role === 'admin' ? 'Windows' : 'Web'} (${socket.user.username})`,
+        connectedAt: new Date().toISOString()
+      });
+    } else {
+      connectedDevices.delete(socket.id);
+    }
+    io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
+    socket.to(roomId).emit('user-disconnected', socket.id);
+  });
+
   // WebRTC Signaling
   socket.on('offer', (data) => {
     console.log(`[${ts()}] OFFER recibido: roomId=${data.roomId} desde=${socket.id}`);
