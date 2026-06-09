@@ -118,8 +118,15 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   };
 
   useEffect(() => {
-    if (videoRef.current && stream) {
+    if (videoRef.current) {
       videoRef.current.srcObject = stream;
+      if (!stream) {
+        try {
+          videoRef.current.pause();
+          videoRef.current.src = "";
+          videoRef.current.load();
+        } catch (e) {}
+      }
     }
     // Reset zoom on stream change
     scaleRef.current = 1;

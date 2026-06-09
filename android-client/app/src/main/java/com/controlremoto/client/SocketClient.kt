@@ -20,6 +20,7 @@ class SocketClient {
     var onOffer: ((JSONObject) -> Unit)? = null
     var onAnswer: ((JSONObject) -> Unit)? = null
     var onIceCandidate: ((JSONObject) -> Unit)? = null
+    var onUserDisconnected: (() -> Unit)? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private fun updateStatus(msg: String) {
@@ -136,6 +137,10 @@ class SocketClient {
                 } catch (e: Exception) {
                     updateStatus("❌ Error ICE: ${e.message}")
                 }
+            }
+            socket?.on("user-disconnected") {
+                updateStatus("⚠️ Administrador desconectado de la sala")
+                mainHandler.post { onUserDisconnected?.invoke() }
             }
 
             socket?.connect()

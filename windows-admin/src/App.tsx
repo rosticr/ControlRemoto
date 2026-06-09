@@ -184,6 +184,11 @@ function App() {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => track.stop());
+    }
+    isRemoteDescriptionSetRef.current = false;
+    pendingIceCandidatesRef.current = [];
     dataChannelRef.current = null;
     setFileChannel(null);
     setIsConnected(false);

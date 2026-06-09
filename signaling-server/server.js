@@ -668,6 +668,9 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     const device = connectedDevices.get(socket.id);
     console.log(`[${ts()}] DESCONEXIÓN: ${socket.id} roomId=${device?.roomId} razón=${reason}`);
+    if (device && device.roomId) {
+      socket.to(device.roomId).emit('user-disconnected', socket.id);
+    }
     connectedDevices.delete(socket.id);
     const onlineIds = Array.from(connectedDevices.values())
       .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);

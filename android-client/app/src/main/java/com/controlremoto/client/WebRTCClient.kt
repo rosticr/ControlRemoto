@@ -18,6 +18,10 @@ class WebRTCClient(
     private val eglBase = EglBase.create()
     private val fileManager = FileManagerService()
 
+    private var videoCapturer: ScreenCapturerAndroid? = null
+    private var surfaceTextureHelper: SurfaceTextureHelper? = null
+    private var videoSource: VideoSource? = null
+
     init {
         // Inicializar WebRTC
         PeerConnectionFactory.initialize(
@@ -186,10 +190,16 @@ class WebRTCClient(
     }
 
     private fun startScreenCapture() {
-        val videoCapturer = ScreenCapturerAndroid(mediaProjectionPermissionResultData, object : MediaProjection.Callback() {})
-        val surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
-        val videoSource = factory?.createVideoSource(videoCapturer.isScreencast)
-        videoCapturer.initialize(surfaceTextureHelper, context, videoSource?.capturerObserver)
+        val capturer = ScreenCapturerAndroid(mediaProjectionPermissionResultData, object : MediaProjection.Callback() {})
+        videoCapturer = capturer
+        
+        val textureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
+        surfaceTextureHelper = textureHelper
+        
+        val source = factory?.createVideoSource(capturer.isScreencast)
+        videoSource = source
+        
+        capturer.initialize(textureHelper, context, source?.capturerObserver)
         
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
         val metrics = android.util.DisplayMetrics()
@@ -215,9 +225,9 @@ class WebRTCClient(
         height = (height / 2) * 2
         
         // Resolución dinámica y segura
-        videoCapturer.startCapture(width, height, 30) 
+        capturer.startCapture(width, height, 30) 
 
-        val videoTrack = factory?.createVideoTrack("100", videoSource)
+        val videoTrack = factory?.createVideoTrack("100", source)
         val sender = peerConnection?.addTrack(videoTrack, listOf("screen_stream"))
         
         // Limitar el bitrate a nivel de red (800 kbps) para evitar saturación y congelamiento
@@ -233,5 +243,47 @@ class WebRTCClient(
         } catch (e: Exception) {
             android.util.Log.e("WebRTCClient", "Error limitando bitrate", e)
         }
+    }
+
+    fun dispose() {
+        android.util.Log.d("WebRTCClient", "Disposing WebRTCClient resources...")
+        try {
+            videoCapturer?.stopCapture()
+            videoCapturer?.dispose()
+        } catch (e: Exception) {
+            android.util.Log.e("WebRTCClient", "Error stopping videoCapturer: ${e.message}")
+        }
+        try {
+            surfaceTextureHelper?.dispose()
+        } catch (e: Exception) {
+            android.util.Log.e("WebRTCClient", "Error disposing surfaceTextureHelper: ${e.message}")
+        }
+        try {
+            videoSource?.dispose()
+        } catch (e: Exception) {
+            android.util.Log.e("WebRTCClient", "Error disposing videoSource: ${e.message}")
+        }
+        try {
+            dataChannel?.close()
+            fileChannel?.close()
+        } catch (e: Exception) {}
+        try {
+            peerConnection?.close()
+        } catch (e: Exception) {}
+        try {
+            factory?.dispose()
+        } catch (e: Exception) {}
+        try {
+            eglBase.release()
+        } catch (e: Exception) {}
+        
+        videoCapturer = null
+        surfaceTextureHelper = null
+        videoSource = null
+        peerConnection = null
+        factory = null
+        dataChannel = null
+        fileChannel = null
+        android.util.Log.d("WebRTCClient", "WebRTCClient resources disposed.")
     }
 }

@@ -22,6 +22,7 @@ class RemoteControlService : Service() {
     private var socketClient: SocketClient? = null
     private var isRemoteDescriptionSet = false
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
+    private var mediaProjectionData: Intent? = null
 
     private fun sendStatus(msg: String) {
         Log.d("RemoteControl", msg)
@@ -70,6 +71,7 @@ class RemoteControlService : Service() {
             val roomId = intent.getStringExtra("ROOM_ID") ?: return super.onStartCommand(intent, flags, startId)
             @Suppress("DEPRECATION")
             val projectionData = intent.getParcelableExtra<Intent>("DATA") ?: return super.onStartCommand(intent, flags, startId)
+            mediaProjectionData = projectionData
 
             val prefs = getSharedPreferences("RostiPrefs", android.content.Context.MODE_PRIVATE)
             val serverUrl = prefs.getString("server_url", "http://192.168.1.170:3000") ?: "http://192.168.1.170:3000"
@@ -81,11 +83,30 @@ class RemoteControlService : Service() {
             
             socketClient?.onStatusChange = { msg -> sendStatus(msg) }
             
+            socketClient?.onUserDisconnected = {
+                Log.d("RemoteControl", "Admin se desconectó. Deteniendo transmisión WebRTC.")
+                webRTCClient?.dispose()
+                webRTCClient = null
+            }
+            
             socketClient?.connect(this, serverUrl, roomId,
                 onOfferInit = { currentOffer ->
-                    Log.d("RemoteControl", "Offer recibido, creando Answer...")
+                    Log.d("RemoteControl", "Offer recibido, reiniciando sesión WebRTC...")
+                    
+                    // Liberar recursos de cualquier sesión previa
+                    webRTCClient?.dispose()
+                    webRTCClient = null
+                    
                     isRemoteDescriptionSet = false
                     pendingIceCandidates.clear()
+
+                    val projData = mediaProjectionData
+                    if (projData != null) {
+                        webRTCClient = WebRTCClient(this@RemoteControlService, socketClient!!, roomId, projData)
+                    } else {
+                        Log.e("RemoteControl", "mediaProjectionData es nulo, no se puede iniciar WebRTC")
+                        return@connect
+                    }
                     
                     webRTCClient?.peerConnection?.setRemoteDescription(object : SdpObserver {
                         override fun onSetSuccess() {
@@ -125,8 +146,6 @@ class RemoteControlService : Service() {
                     }
                 }
             )
-
-            webRTCClient = WebRTCClient(this, socketClient!!, roomId, projectionData)
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -141,6 +160,7 @@ class RemoteControlService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d("RemoteControl", "Servicio Destruido")
+        webRTCClient?.dispose()
         socketClient?.disconnect()
     }
 }
