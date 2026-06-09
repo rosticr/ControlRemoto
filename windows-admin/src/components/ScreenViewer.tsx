@@ -15,6 +15,9 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRightClickMode, setIsRightClickMode] = useState(false);
 
+  const isKeyboardActiveRef = useRef(false);
+  const touchMouseStartRef = useRef<{ x: number; y: number; time: number; isTap: boolean } | null>(null);
+
   // States and refs for touch pinch-to-zoom and panning
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -107,56 +110,93 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     }
   }, [stream]);
 
-  const handlePointerEvent = (e: React.PointerEvent<HTMLVideoElement>, type: string) => {
-    if (type === 'down') {
-      e.preventDefault(); // Keep focus on the virtual keyboard input
-    }
-    const video = e.currentTarget;
+  const sendMouseEventAtPointer = (clientX: number, clientY: number, button: number, video: HTMLVideoElement, type: string) => {
     const rect = video.getBoundingClientRect();
-    
-    // Obtener dimensiones reales del video recibido
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
     
     if (!videoWidth || !videoHeight) return;
 
-    // Calcular la proporción del contenedor y del video
     const containerRatio = rect.width / rect.height;
     const videoRatio = videoWidth / videoHeight;
 
     let actualWidth, actualHeight, startX, startY;
 
-    // Determinar el tamaño y la posición real del video dentro del contenedor (compensar barras negras)
     if (containerRatio > videoRatio) {
-      // El contenedor es más ancho que el video -> Barras negras a los lados
       actualHeight = rect.height;
       actualWidth = actualHeight * videoRatio;
       startX = (rect.width - actualWidth) / 2;
       startY = 0;
     } else {
-      // El contenedor es más alto que el video -> Barras negras arriba y abajo
       actualWidth = rect.width;
       actualHeight = actualWidth / videoRatio;
       startX = 0;
       startY = (rect.height - actualHeight) / 2;
     }
 
-    // Calcular las coordenadas X, Y excluyendo las barras negras
-    const x = (e.clientX - rect.left - startX) / actualWidth;
-    const y = (e.clientY - rect.top - startY) / actualHeight;
+    const x = (clientX - rect.left - startX) / actualWidth;
+    const y = (clientY - rect.top - startY) / actualHeight;
     
-    // Asegurarse de que el clic ocurrió DENTRO del área del video, no en las barras negras
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
       let eventType = type;
-      if (e.button === 2 || isRightClickMode) {
+      if (button === 2 || isRightClickMode) {
         if (type === 'down') eventType = 'rightdown';
         else if (type === 'up') {
           eventType = 'rightup';
-          setIsRightClickMode(false); // Reset right click mode after action
+          setIsRightClickMode(false);
         }
       }
       onMouseEvent(eventType, x, y);
     }
+  };
+
+  const handlePointerEvent = (e: React.PointerEvent<HTMLVideoElement>, type: string) => {
+    // Ignore secondary pointers for touch
+    if (e.pointerType === 'touch' && !e.isPrimary) {
+      return;
+    }
+
+    const video = e.currentTarget;
+
+    if (e.pointerType === 'touch' && scale > 1) {
+      if (type === 'down') {
+        touchMouseStartRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          time: Date.now(),
+          isTap: true
+        };
+        return;
+      }
+      
+      if (type === 'move') {
+        if (touchMouseStartRef.current) {
+          const dx = e.clientX - touchMouseStartRef.current.x;
+          const dy = e.clientY - touchMouseStartRef.current.y;
+          if (Math.hypot(dx, dy) > 10) {
+            touchMouseStartRef.current.isTap = false;
+          }
+        }
+        return;
+      }
+
+      if (type === 'up') {
+        if (touchMouseStartRef.current && touchMouseStartRef.current.isTap) {
+          const elapsed = Date.now() - touchMouseStartRef.current.time;
+          if (elapsed < 300) {
+            sendMouseEventAtPointer(e.clientX, e.clientY, e.button, video, 'down');
+            setTimeout(() => {
+              sendMouseEventAtPointer(e.clientX, e.clientY, e.button, video, 'up');
+            }, 20);
+          }
+        }
+        touchMouseStartRef.current = null;
+        return;
+      }
+    }
+
+    // Normal behavior (mouse, or touch when scale === 1)
+    sendMouseEventAtPointer(e.clientX, e.clientY, e.button, video, type);
   };
 
   useEffect(() => {
@@ -229,9 +269,20 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     });
   };
 
+  const handleInputBlur = () => {
+    if (isKeyboardActiveRef.current) {
+      setTimeout(() => {
+        if (isKeyboardActiveRef.current && keyboardInputRef.current) {
+          keyboardInputRef.current.focus();
+        }
+      }, 150);
+    }
+  };
+
   const triggerMobileKeyboard = () => {
     if (keyboardInputRef.current) {
-      if (document.activeElement === keyboardInputRef.current) {
+      if (isKeyboardActiveRef.current) {
+        isKeyboardActiveRef.current = false;
         keyboardInputRef.current.blur();
         const bridge = (window as any).AndroidBridge;
         if (bridge && typeof bridge.hideKeyboard === 'function') {
@@ -240,6 +291,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
           } catch (e) {}
         }
       } else {
+        isKeyboardActiveRef.current = true;
         keyboardInputRef.current.focus();
         setTimeout(() => {
           const bridge = (window as any).AndroidBridge;
@@ -315,6 +367,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             type="text"
             onChange={handleKeyboardInput}
             onKeyDown={handleKeyboardKeyDown}
+            onBlur={handleInputBlur}
             style={{
               position: 'absolute',
               bottom: '12px',
