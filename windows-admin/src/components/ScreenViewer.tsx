@@ -18,9 +18,17 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const isKeyboardActiveRef = useRef(false);
   const touchMouseStartRef = useRef<{ x: number; y: number; time: number; isTap: boolean } | null>(null);
 
-  // States and refs for touch pinch-to-zoom and panning
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const scaleRef = useRef(1);
+  const positionRef = useRef({ x: 0, y: 0 });
+  const refocusTimeoutRef = useRef<any>(null);
+
+  const updateVideoTransform = () => {
+    if (videoRef.current) {
+      videoRef.current.style.transform = `scale(${scaleRef.current}) translate(${positionRef.current.x}px, ${positionRef.current.y}px)`;
+      videoRef.current.style.transition = scaleRef.current === 1 ? 'transform 0.2s ease-out' : 'none';
+    }
+  };
+
   const touchStartRef = useRef({
     distance: 0,
     scale: 1,
@@ -39,8 +47,8 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         ...touchStartRef.current,
         x: touch.clientX,
         y: touch.clientY,
-        posX: position.x,
-        posY: position.y,
+        posX: positionRef.current.x,
+        posY: positionRef.current.y,
         isPinching: false
       };
     } else if (e.touches.length === 2) {
@@ -51,9 +59,9 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       touchStartRef.current = {
         ...touchStartRef.current,
         distance: dist,
-        scale: scale,
-        posX: position.x,
-        posY: position.y,
+        scale: scaleRef.current,
+        posX: positionRef.current.x,
+        posY: positionRef.current.y,
         isPinching: true
       };
     }
@@ -61,7 +69,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 1 && !touchStartRef.current.isPinching) {
-      if (scale > 1) {
+      if (scaleRef.current > 1) {
         // Only allow scroll/pan on remote screen if zoomed in
         e.preventDefault();
         const touch = e.touches[0];
@@ -69,17 +77,19 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         const dy = touch.clientY - touchStartRef.current.y;
         
         // Calculate translation relative to zoom scale factor
-        const newX = touchStartRef.current.posX + dx / scale;
-        const newY = touchStartRef.current.posY + dy / scale;
+        const newX = touchStartRef.current.posX + dx / scaleRef.current;
+        const newY = touchStartRef.current.posY + dy / scaleRef.current;
 
         // Cap pan boundaries based on current scale to prevent dragging video off screen
-        const maxPanX = (scale - 1) * 180;
-        const maxPanY = (scale - 1) * 180;
+        const maxPanX = (scaleRef.current - 1) * 180;
+        const maxPanY = (scaleRef.current - 1) * 180;
 
-        setPosition({
+        positionRef.current = {
           x: Math.min(Math.max(newX, -maxPanX), maxPanX),
           y: Math.min(Math.max(newY, -maxPanY), maxPanY)
-        });
+        };
+
+        updateVideoTransform();
       }
     } else if (e.touches.length === 2) {
       // Pinching
@@ -89,12 +99,15 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
       const factor = dist / touchStartRef.current.distance;
       const newScale = Math.min(Math.max(touchStartRef.current.scale * factor, 1), 5);
-      setScale(newScale);
+      
+      scaleRef.current = newScale;
       
       // If scale returns to 1, reset panning coordinates
       if (newScale === 1) {
-        setPosition({ x: 0, y: 0 });
+        positionRef.current = { x: 0, y: 0 };
       }
+
+      updateVideoTransform();
     }
   };
 
@@ -108,6 +121,10 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
+    // Reset zoom on stream change
+    scaleRef.current = 1;
+    positionRef.current = { x: 0, y: 0 };
+    updateVideoTransform();
   }, [stream]);
 
   const sendMouseEventAtPointer = (clientX: number, clientY: number, button: number, video: HTMLVideoElement, type: string) => {
@@ -158,7 +175,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
     const video = e.currentTarget;
 
-    if (e.pointerType === 'touch' && scale > 1) {
+    if (e.pointerType === 'touch' && scaleRef.current > 1) {
       if (type === 'down') {
         touchMouseStartRef.current = {
           x: e.clientX,
@@ -240,20 +257,40 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
   const handleKeyboardInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onKeyEvent) return;
-    const text = e.target.value;
-    if (text.length > 0) {
-      for (let i = 0; i < text.length; i++) {
-        onKeyEvent(text[i]);
+    const value = e.target.value;
+    
+    if (value === "") {
+      // Android Backspace case: the spacer space was deleted
+      onKeyEvent("Backspace");
+      e.target.value = " ";
+    } else if (value === " ") {
+      // No change
+    } else {
+      // Characters were added.
+      // Since it starts with " ", we extract the added characters
+      if (value.startsWith(" ")) {
+        const added = value.slice(1);
+        for (let i = 0; i < added.length; i++) {
+          onKeyEvent(added[i]);
+        }
+      } else {
+        // In case the spacer space was replaced/deleted during composition
+        for (let i = 0; i < value.length; i++) {
+          onKeyEvent(value[i]);
+        }
       }
-      e.target.value = '';
+      // Reset the spacer space
+      e.target.value = " ";
     }
   };
 
   const handleKeyboardKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!onKeyEvent) return;
     if (e.key === 'Backspace') {
+      e.preventDefault();
       onKeyEvent('Backspace');
     } else if (e.key === 'Enter') {
+      e.preventDefault();
       onKeyEvent('Enter');
     }
   };
@@ -271,13 +308,31 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
   const handleInputBlur = () => {
     if (isKeyboardActiveRef.current) {
-      setTimeout(() => {
+      if (refocusTimeoutRef.current) {
+        clearTimeout(refocusTimeoutRef.current);
+      }
+      refocusTimeoutRef.current = setTimeout(() => {
         if (isKeyboardActiveRef.current && keyboardInputRef.current) {
           keyboardInputRef.current.focus();
         }
       }, 150);
     }
   };
+
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.value = " ";
+  };
+
+  useEffect(() => {
+    if (keyboardInputRef.current) {
+      keyboardInputRef.current.value = " ";
+    }
+    return () => {
+      if (refocusTimeoutRef.current) {
+        clearTimeout(refocusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const triggerMobileKeyboard = () => {
     if (keyboardInputRef.current) {
@@ -350,9 +405,9 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               height: '100%', 
               objectFit: 'contain',
               touchAction: 'none',
-              transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+              transform: `scale(${scaleRef.current}) translate(${positionRef.current.x}px, ${positionRef.current.y}px)`,
               transformOrigin: 'center center',
-              transition: scale === 1 ? 'transform 0.2s ease-out' : 'none'
+              transition: scaleRef.current === 1 ? 'transform 0.2s ease-out' : 'none'
             }}
             onPointerDown={(e) => handlePointerEvent(e, 'down')}
             onPointerUp={(e) => handlePointerEvent(e, 'up')}
@@ -368,6 +423,11 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onChange={handleKeyboardInput}
             onKeyDown={handleKeyboardKeyDown}
             onBlur={handleInputBlur}
+            onFocus={handleInputFocus}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
             style={{
               position: 'absolute',
               bottom: '12px',

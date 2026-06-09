@@ -31,8 +31,10 @@
         <activity
             android:name=".AdminConsoleActivity"
             android:label="Consola de Administración"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
             android:hardwareAccelerated="true"
             android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false">
         </activity>
 
