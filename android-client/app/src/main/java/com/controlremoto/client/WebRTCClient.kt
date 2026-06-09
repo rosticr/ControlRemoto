@@ -43,7 +43,16 @@ class WebRTCClient(
 
         val iceServers = listOf(
             PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
+            PeerConnection.IceServer.builder("stun:global.relay.metered.ca:80").createIceServer(),
+            PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
+                .setUsername("93d3531d6cb9d21936c44b01")
+                .setPassword("1WRQmmSv2+K85BnG")
+                .createIceServer(),
             PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80?transport=tcp")
+                .setUsername("93d3531d6cb9d21936c44b01")
+                .setPassword("1WRQmmSv2+K85BnG")
+                .createIceServer(),
+            PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443")
                 .setUsername("93d3531d6cb9d21936c44b01")
                 .setPassword("1WRQmmSv2+K85BnG")
                 .createIceServer(),

@@ -134,7 +134,10 @@ function App() {
     const configuration = { 
       iceServers: [
         { urls: "stun:stun.relay.metered.ca:80" },
+        { urls: "stun:global.relay.metered.ca:80" },
+        { urls: "turn:global.relay.metered.ca:80", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" },
         { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" },
+        { urls: "turn:global.relay.metered.ca:443", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" },
         { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "93d3531d6cb9d21936c44b01", credential: "1WRQmmSv2+K85BnG" }
       ] 
     };
