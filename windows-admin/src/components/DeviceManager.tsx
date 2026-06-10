@@ -889,6 +889,11 @@ export default function DeviceManager({
                   });
                 }
 
+                // Ordenar los equipos alfabéticamente por nombre dentro de cada grupo
+                Object.keys(acc).forEach(groupName => {
+                  acc[groupName].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+                });
+
                 return Object.entries(acc).map(([groupName, devices]) => {
                   const isCollapsed = query ? false : (collapsedGroups[groupName] || false);
                   const onlineCount = devices.filter(d => onlineDevices.includes(d.id)).length;
