@@ -516,6 +516,7 @@ async function sendEmail(config, subject, text, html) {
     tls: {
       rejectUnauthorized: false
     },
+    family: 4, // Forzar uso de IPv4 para evitar error ENETUNREACH IPv6
     connectionTimeout: 10000, // 10 segundos
     greetingTimeout: 10000,   // 10 segundos
     socketTimeout: 15000      // 15 segundos
