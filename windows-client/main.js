@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Disable hardware acceleration to prevent desktop capture freezes/stalls on GPU context switches (e.g. opening new windows) on Windows
+app.disableHardwareAcceleration();
+
 // Set Application User Model ID for Windows taskbar notifications and icon association
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.rosti.windowsclient');

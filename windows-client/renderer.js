@@ -287,19 +287,33 @@ window.addEventListener('socket-user-disconnected', () => {
   closeWebRTC();
 });
 
+let currentSessionId = 0;
+
 // Handle WebRTC Offer
 window.addEventListener('socket-offer', async (e) => {
   const offer = e.detail;
   console.log("Received WebRTC Offer from admin.");
   
+  // Increment session ID to cancel/supersede any pending setup async tasks
+  const sessionId = ++currentSessionId;
+  
   // Close any existing session
   closeWebRTC();
 
   try {
-    peerConnection = new RTCPeerConnection(iceConfiguration);
+    const myPeerConnection = new RTCPeerConnection(iceConfiguration);
+    peerConnection = myPeerConnection; // set global
 
     // Forward local screen capture to PeerConnection
     const sources = await window.electronAPI.getScreenSources();
+    
+    // Check if superseded during the getScreenSources await
+    if (sessionId !== currentSessionId) {
+      console.log(`[WebRTC] Session ${sessionId} was superseded during sources fetch. Aborting setup.`);
+      myPeerConnection.close();
+      return;
+    }
+
     if (!sources || sources.length === 0) {
       throw new Error("No screen capture sources found.");
     }
@@ -308,7 +322,7 @@ window.addEventListener('socket-offer', async (e) => {
     const primarySource = sources[0];
 
     // Capture primary screen using standard Electron capture constraints (1080p limit at capture level)
-    localStream = await navigator.mediaDevices.getUserMedia({
+    const myLocalStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
         mandatory: {
@@ -321,29 +335,42 @@ window.addEventListener('socket-offer', async (e) => {
       }
     });
 
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
+    // Check if superseded during the getUserMedia await
+    if (sessionId !== currentSessionId) {
+      console.log(`[WebRTC] Session ${sessionId} was superseded during capture. Aborting setup.`);
+      myLocalStream.getTracks().forEach(track => track.stop());
+      myPeerConnection.close();
+      return;
+    }
+
+    localStream = myLocalStream; // set global
+
+    myLocalStream.getTracks().forEach(track => {
+      myPeerConnection.addTrack(track, myLocalStream);
     });
 
     // ICE Candidate Callback
-    peerConnection.onicecandidate = (event) => {
+    myPeerConnection.onicecandidate = (event) => {
+      if (sessionId !== currentSessionId) return;
       if (event.candidate) {
         window.electronAPI.sendIceCandidate(config.deviceId, event.candidate.toJSON());
       }
     };
 
     // Connection state changes
-    peerConnection.onconnectionstatechange = () => {
-      console.log(`WebRTC Connection State: ${peerConnection.connectionState}`);
-      if (peerConnection.connectionState === 'disconnected' || 
-          peerConnection.connectionState === 'failed' || 
-          peerConnection.connectionState === 'closed') {
+    myPeerConnection.onconnectionstatechange = () => {
+      if (sessionId !== currentSessionId) return;
+      console.log(`WebRTC Connection State: ${myPeerConnection.connectionState}`);
+      if (myPeerConnection.connectionState === 'disconnected' || 
+          myPeerConnection.connectionState === 'failed' || 
+          myPeerConnection.connectionState === 'closed') {
         closeWebRTC();
       }
     };
 
     // Receive Data Channels from Admin
-    peerConnection.ondatachannel = (event) => {
+    myPeerConnection.ondatachannel = (event) => {
+      if (sessionId !== currentSessionId) return;
       const channel = event.channel;
       console.log(`Opened DataChannel: ${channel.label}`);
 
@@ -457,13 +484,39 @@ window.addEventListener('socket-offer', async (e) => {
     };
 
     // Set Remote Offer and Send Answer
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
+    await myPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    // Check if superseded during setRemoteDescription await
+    if (sessionId !== currentSessionId) {
+      console.log(`[WebRTC] Session ${sessionId} was superseded during setRemoteDescription. Aborting.`);
+      myLocalStream.getTracks().forEach(track => track.stop());
+      myPeerConnection.close();
+      return;
+    }
+
+    const answer = await myPeerConnection.createAnswer();
+    
+    // Check if superseded during createAnswer await
+    if (sessionId !== currentSessionId) {
+      console.log(`[WebRTC] Session ${sessionId} was superseded during createAnswer. Aborting.`);
+      myLocalStream.getTracks().forEach(track => track.stop());
+      myPeerConnection.close();
+      return;
+    }
+
+    await myPeerConnection.setLocalDescription(answer);
+    
+    // Check if superseded during setLocalDescription await
+    if (sessionId !== currentSessionId) {
+      console.log(`[WebRTC] Session ${sessionId} was superseded during setLocalDescription. Aborting.`);
+      myLocalStream.getTracks().forEach(track => track.stop());
+      myPeerConnection.close();
+      return;
+    }
 
     // Apply WebRTC encoding parameters (bitrate, framerate, and resolution downscaling)
     try {
-      const transceivers = peerConnection.getTransceivers();
+      const transceivers = myPeerConnection.getTransceivers();
       const videoTransceiver = transceivers.find(t => t.sender.track?.kind === 'video');
       if (videoTransceiver) {
         const sender = videoTransceiver.sender;
@@ -474,7 +527,7 @@ window.addEventListener('socket-offer', async (e) => {
         
         // Dynamic downscaling based on the actual captured resolution of the video track.
         // We target a max width of 1280px to optimize performance on VP8/VP9 software encoders.
-        const videoTrack = localStream.getVideoTracks()[0];
+        const videoTrack = myLocalStream.getVideoTracks()[0];
         if (videoTrack) {
           const settings = videoTrack.getSettings();
           const width = settings.width || 1920;
@@ -507,7 +560,9 @@ window.addEventListener('socket-offer', async (e) => {
 
   } catch (err) {
     console.error("Error setting up WebRTC session:", err);
-    closeWebRTC();
+    if (sessionId === currentSessionId) {
+      closeWebRTC();
+    }
   }
 });
 
