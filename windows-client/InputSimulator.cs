@@ -5,6 +5,9 @@ class InputSimulator {
     [DllImport("user32.dll", SetLastError = true)]
     static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+    [DllImport("sas.dll", SetLastError = true)]
+    static extern void SendSAS(bool fAsUser);
+
     // Structure definitions for SendInput API
     [StructLayout(LayoutKind.Sequential)]
     struct INPUT {
@@ -62,6 +65,7 @@ class InputSimulator {
     const uint KEYEVENTF_UNICODE = 0x0004;
 
     static void Main() {
+        EnableSoftwareSAS();
         Console.WriteLine("InputSimulator Ready");
         string line;
         while ((line = Console.ReadLine()) != null) {
@@ -224,6 +228,14 @@ class InputSimulator {
                     };
                     SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
                 }
+                else if (cmd == "sas" || cmd == "cad") {
+                    try {
+                        SendSAS(false);
+                        Console.WriteLine("SAS Sent");
+                    } catch (Exception ex) {
+                        Console.Error.WriteLine("SAS Error: " + ex.Message);
+                    }
+                }
                 else if (cmd == "key" && parts.Length >= 2) {
                     string keyVal = parts[1];
                     SendKeyString(keyVal);
@@ -313,5 +325,21 @@ class InputSimulator {
             case "delete": return 0x2E;
         }
         return 0;
+    }
+
+    static void EnableSoftwareSAS() {
+        try {
+            using (var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", true)) {
+                if (key != null) {
+                    object val = key.GetValue("SoftwareSASGeneration");
+                    if (val == null || (int)val != 3) {
+                        key.SetValue("SoftwareSASGeneration", 3, Microsoft.Win32.RegistryValueKind.DWord);
+                        Console.WriteLine("Software SAS generation enabled in registry.");
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Console.Error.WriteLine("Registry Error (SAS): " + ex.Message);
+        }
     }
 }

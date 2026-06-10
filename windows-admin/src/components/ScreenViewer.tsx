@@ -511,6 +511,18 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             )}
           </div>
 
+          {platform === 'windows' && (
+            <button
+              {...stopPropagationProps}
+              onClick={(e) => { e.stopPropagation(); if (onKeyEvent) onKeyEvent('SEND_SAS'); }}
+              className="sas-btn"
+              title="Enviar Ctrl+Alt+Supr"
+            >
+              <Keyboard size={16} />
+              <span>Ctrl+Alt+Supr</span>
+            </button>
+          )}
+
           <button
             {...stopPropagationProps}
             onClick={(e) => { e.stopPropagation(); setIsFullscreen(!isFullscreen); }}

@@ -478,6 +478,36 @@ button:disabled {
   transform: scale(1.08);
 }
 
+/* Botón flotante para enviar Ctrl+Alt+Del (SAS) */
+.sas-btn {
+  position: absolute;
+  top: 16px;
+  right: 68px; /* Colocado a la izquierda del botón de pantalla completa */
+  background: rgba(13, 19, 35, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-main);
+  padding: 0 12px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.sas-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
 /* Login Component */
 .login-wrapper {
   width: 100vw;

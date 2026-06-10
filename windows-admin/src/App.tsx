@@ -210,6 +210,8 @@ function App() {
       if (key.startsWith('CLIPBOARD_PASTE:')) {
         const text = key.substring('CLIPBOARD_PASTE:'.length);
         dataChannelRef.current.send(JSON.stringify({ type: 'clipboard', text }));
+      } else if (key === 'SEND_SAS') {
+        dataChannelRef.current.send(JSON.stringify({ type: 'sas' }));
       } else {
         dataChannelRef.current.send(JSON.stringify({ type: 'key', key }));
       }
