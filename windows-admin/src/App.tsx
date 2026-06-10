@@ -146,21 +146,9 @@ function App() {
     peerConnectionRef.current = peerConnection;
 
     try {
-      const videoTransceiver = peerConnection.addTransceiver('video', { direction: 'recvonly' });
-      // Priorizar el códec H.264 en el receptor para aceleración por hardware
-      if (typeof RTCRtpSender.getCapabilities === 'function') {
-        const capabilities = RTCRtpSender.getCapabilities('video');
-        if (capabilities && capabilities.codecs) {
-          const h264Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
-          const otherCodecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264');
-          if (h264Codecs.length > 0) {
-            videoTransceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
-            console.log("[WebRTC] Códec H.264 priorizado en el receptor (consola).");
-          }
-        }
-      }
+      peerConnection.addTransceiver('video', { direction: 'recvonly' });
     } catch (e) {
-      console.error('Error adding transceiver or setting codec preferences', e);
+      console.error('Error adding transceiver', e);
     }
     
     peerConnection.addEventListener('icecandidate', event => {

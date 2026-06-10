@@ -307,57 +307,23 @@ window.addEventListener('socket-offer', async (e) => {
     // Select primary screen (usually first source)
     const primarySource = sources[0];
 
-    // Capture primary screen using standard Electron capture constraints
+    // Capture primary screen using standard Electron capture constraints (1080p limit at capture level)
     localStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
         mandatory: {
           chromeMediaSource: 'desktop',
           chromeMediaSourceId: primarySource.id,
-          maxWidth: 1600,
-          maxHeight: 900,
+          maxWidth: 1920,
+          maxHeight: 1080,
           maxFrameRate: 15
         }
       }
     });
 
-    // Enforce resolution and frame rate constraints on the video track
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-      try {
-        await videoTrack.applyConstraints({
-          width: { max: 1600 },
-          height: { max: 900 },
-          frameRate: { max: 15 }
-        });
-        console.log("[WebRTC] Constraints applied to local track:", videoTrack.getSettings());
-      } catch (cErr) {
-        console.warn("[WebRTC] Failed to apply local track constraints:", cErr);
-      }
-    }
-
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
     });
-
-    // Priorizar el códec H.264 para usar aceleración por hardware y evitar saturar la CPU
-    try {
-      const transceivers = peerConnection.getTransceivers();
-      const videoTransceiver = transceivers.find(t => t.sender.track?.kind === 'video');
-      if (videoTransceiver && typeof RTCRtpSender.getCapabilities === 'function') {
-        const capabilities = RTCRtpSender.getCapabilities('video');
-        if (capabilities && capabilities.codecs) {
-          const h264Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
-          const otherCodecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264');
-          if (h264Codecs.length > 0) {
-            videoTransceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
-            console.log("[WebRTC] Códec H.264 priorizado en el transmisor (cliente).");
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[WebRTC] No se pudo establecer la preferencia de códecs:", e);
-    }
 
     // ICE Candidate Callback
     peerConnection.onicecandidate = (event) => {
@@ -506,29 +472,27 @@ window.addEventListener('socket-offer', async (e) => {
           parameters.encodings = [{}];
         }
         
-        // Dynamic downscaling based on the actual captured resolution of the video track
+        // Dynamic downscaling based on the actual captured resolution of the video track.
+        // We target a max width of 1280px to optimize performance on VP8/VP9 software encoders.
         const videoTrack = localStream.getVideoTracks()[0];
         if (videoTrack) {
           const settings = videoTrack.getSettings();
           const width = settings.width || 1920;
-          const height = settings.height || 1080;
           
           let scaleFactor = 1.0;
-          if (width > 1600) {
-            scaleFactor = width / 1600;
-          }
-          if (height > 900 && (height / 900) > scaleFactor) {
-            scaleFactor = height / 900;
+          if (width > 1280) {
+            scaleFactor = width / 1280;
           }
           
           if (scaleFactor > 1.0) {
             parameters.encodings[0].scaleResolutionDownBy = scaleFactor;
-            console.log(`[WebRTC] High captured resolution detected: ${width}x${height}. Enforcing downscaling by ${scaleFactor.toFixed(2)}x in RTCRtpSender.`);
+            console.log(`[WebRTC] High captured resolution detected: ${width}px width. Enforcing encoder downscaling by ${scaleFactor.toFixed(2)}x in RTCRtpSender.`);
           }
         }
         
-        // Hard-cap max bitrate to 1.2 Mbps and framerate to 15 FPS to ensure fluidity and low network impact
-        parameters.encodings[0].maxBitrate = 1200000;
+        // Cap max bitrate to 900 kbps and framerate to 15 FPS. This guarantees fluid stream delivery
+        // and low CPU load even on low-end remote terminals and mobile networks.
+        parameters.encodings[0].maxBitrate = 900000;
         parameters.encodings[0].maxFramerate = 15;
         
         await sender.setParameters(parameters);
