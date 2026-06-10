@@ -20,6 +20,7 @@ interface Props {
   serverUrl?: string;
   token?: string;
   onLogout?: () => void;
+  role?: string;
 }
 
 interface SavedDevice {
@@ -88,7 +89,8 @@ export default function DeviceManager({
   onDisconnect,
   serverUrl = '',
   token = '',
-  onLogout
+  onLogout,
+  role = 'user'
 }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [activeTool, setActiveTool] = useState<null | 'screen' | 'files'>(null);
@@ -329,7 +331,7 @@ export default function DeviceManager({
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const syncGroupsWithServer = async (groupsList: string[]) => {
-    if (!serverUrl || !token) return;
+    if (!serverUrl || !token || role !== 'admin') return;
     try {
       const res = await fetch(`${serverUrl}/api/groups`, {
         method: 'POST',
@@ -339,7 +341,7 @@ export default function DeviceManager({
         },
         body: JSON.stringify({ groups: groupsList })
       });
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         console.warn("Session expired on server during groups sync. Logging out.");
         if (onLogout) onLogout();
       }
@@ -349,7 +351,7 @@ export default function DeviceManager({
   };
 
   const syncDevicesWithServer = async (devicesList: SavedDevice[]) => {
-    if (!serverUrl || !token) return;
+    if (!serverUrl || !token || role !== 'admin') return;
     try {
       const res = await fetch(`${serverUrl}/api/devices`, {
         method: 'POST',
@@ -359,7 +361,7 @@ export default function DeviceManager({
         },
         body: JSON.stringify({ devices: devicesList })
       });
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         if (onLogout) onLogout();
       }
     } catch (e) {
@@ -368,7 +370,7 @@ export default function DeviceManager({
   };
 
   const syncPinnedGroupsWithServer = async (pinnedList: string[]) => {
-    if (!serverUrl || !token) return;
+    if (!serverUrl || !token || role !== 'admin') return;
     try {
       const res = await fetch(`${serverUrl}/api/pinned-groups`, {
         method: 'POST',
@@ -378,7 +380,7 @@ export default function DeviceManager({
         },
         body: JSON.stringify({ pinned: pinnedList })
       });
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         if (onLogout) onLogout();
       }
     } catch (e) {

@@ -257,6 +257,14 @@ function App() {
             <Monitor size={22} />
             <span>Equipos</span>
           </div>
+
+          <div 
+            className={`nav-item ${activeView === 'assets' ? 'active' : ''}`}
+            onClick={() => setActiveView('assets')}
+          >
+            <ClipboardList size={22} />
+            <span>Activos</span>
+          </div>
    
           {currentUser.role === 'admin' && (
             <>
@@ -266,13 +274,6 @@ function App() {
               >
                 <Users size={22} />
                 <span>Usuarios</span>
-              </div>
-              <div 
-                className={`nav-item ${activeView === 'assets' ? 'active' : ''}`}
-                onClick={() => setActiveView('assets')}
-              >
-                <ClipboardList size={22} />
-                <span>Activos</span>
               </div>
               <div 
                 className={`nav-item ${activeView === 'monitoring' ? 'active' : ''}`}
@@ -314,6 +315,7 @@ function App() {
           serverUrl={currentServerUrl}
           token={currentUser.token}
           onLogout={handleLogout}
+          role={currentUser.role}
         />
       )}
  
@@ -323,7 +325,7 @@ function App() {
         </div>
       )}
 
-      {activeView === 'assets' && currentUser.role === 'admin' && (
+      {activeView === 'assets' && (
         <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
           <AssetReport 
             onlineDevicesDetails={onlineDevicesDetails} 
