@@ -451,35 +451,38 @@ app.post('/api/pinned-groups', authenticateToken, (req, res) => {
 const EMAIL_CONFIG_FILE = path.join(PERSIST_DIR, 'email_config.json');
 
 function loadEmailConfig() {
+  const defaultConfig = {
+    enabled: true,
+    host: 'smtp.office365.com',
+    port: 587,
+    secure: false,
+    user: 'notificacionescam@rostipolloscr.com',
+    pass: 'P$631524821586up',
+    from: 'notificacionescam@rostipolloscr.com',
+    to: 'soporte@rostipolloscr.com',
+    frequencyHours: 4
+  };
+
   if (!fs.existsSync(EMAIL_CONFIG_FILE)) {
-    const defaultConfig = {
-      enabled: false,
-      host: '',
-      port: 587,
-      secure: false,
-      user: '',
-      pass: '',
-      from: '',
-      to: '',
-      frequencyHours: 4
-    };
     fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
     return defaultConfig;
   }
   try {
-    return JSON.parse(fs.readFileSync(EMAIL_CONFIG_FILE, 'utf8'));
-  } catch (e) {
+    const loaded = JSON.parse(fs.readFileSync(EMAIL_CONFIG_FILE, 'utf8'));
+    // Si faltan campos clave en el archivo cargado, fusionar con el default
     return {
-      enabled: false,
-      host: '',
-      port: 587,
-      secure: false,
-      user: '',
-      pass: '',
-      from: '',
-      to: '',
-      frequencyHours: 4
+      enabled: loaded.enabled !== undefined ? loaded.enabled : defaultConfig.enabled,
+      host: loaded.host || defaultConfig.host,
+      port: loaded.port || defaultConfig.port,
+      secure: loaded.secure !== undefined ? loaded.secure : defaultConfig.secure,
+      user: loaded.user || defaultConfig.user,
+      pass: loaded.pass || defaultConfig.pass,
+      from: loaded.from || defaultConfig.from,
+      to: loaded.to || defaultConfig.to,
+      frequencyHours: loaded.frequencyHours || defaultConfig.frequencyHours
     };
+  } catch (e) {
+    return defaultConfig;
   }
 }
 
@@ -512,7 +515,10 @@ async function sendEmail(config, subject, text, html) {
     },
     tls: {
       rejectUnauthorized: false
-    }
+    },
+    connectionTimeout: 10000, // 10 segundos
+    greetingTimeout: 10000,   // 10 segundos
+    socketTimeout: 15000      // 15 segundos
   });
 
   const mailOptions = {
@@ -664,15 +670,20 @@ app.post('/api/email-config', authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Acceso denegado.' });
   }
-  const newConfig = req.body;
-  const oldConfig = loadEmailConfig();
-  if (newConfig.pass === '********') {
-    newConfig.pass = oldConfig.pass;
+  try {
+    const newConfig = req.body;
+    const oldConfig = loadEmailConfig();
+    if (newConfig.pass === '********') {
+      newConfig.pass = oldConfig.pass;
+    }
+    
+    saveEmailConfig(newConfig);
+    setupEmailScheduler();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error al guardar configuración de correo:", err);
+    res.status(500).json({ error: err.message || 'Error al guardar la configuración de correo' });
   }
-  
-  saveEmailConfig(newConfig);
-  setupEmailScheduler();
-  res.json({ success: true });
 });
 
 app.post('/api/email-config/test', authenticateToken, async (req, res) => {
