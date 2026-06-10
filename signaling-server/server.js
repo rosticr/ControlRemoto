@@ -505,8 +505,22 @@ function getOfflineDevices() {
 }
 
 async function sendEmail(config, subject, text, html) {
+  let hostIp = config.host;
+  if (config.host && !/^[0-9.]+$/.test(config.host) && !config.host.includes(':')) {
+    try {
+      const dns = require('dns').promises;
+      const addresses = await dns.resolve4(config.host);
+      if (addresses && addresses.length > 0) {
+        hostIp = addresses[0];
+        console.log(`[SMTP] DNS resuelto para ${config.host}: ${hostIp}`);
+      }
+    } catch (err) {
+      console.error(`[SMTP] Error resolviendo host ${config.host} a IPv4:`, err);
+    }
+  }
+
   const transporter = nodemailer.createTransport({
-    host: config.host,
+    host: hostIp,
     port: parseInt(config.port, 10) || 587,
     secure: config.secure, // true para puerto 465, false para otros
     auth: {
@@ -514,9 +528,9 @@ async function sendEmail(config, subject, text, html) {
       pass: config.pass
     },
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      servername: config.host // Requerido para verificar el certificado SSL/TLS con el dominio original al usar IP
     },
-    family: 4, // Forzar uso de IPv4 para evitar error ENETUNREACH IPv6
     connectionTimeout: 10000, // 10 segundos
     greetingTimeout: 10000,   // 10 segundos
     socketTimeout: 15000      // 15 segundos
