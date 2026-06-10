@@ -268,6 +268,23 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [onKeyEvent]);
 
+  // Watchdog hook to prevent the video element from getting paused/stuck by browser autoplay or focus throttling
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handlePause = () => {
+      if (stream && video.paused) {
+        video.play().catch(err => console.warn("[ScreenViewer] video.play failed on pause event:", err));
+      }
+    };
+
+    video.addEventListener('pause', handlePause);
+    return () => {
+      video.removeEventListener('pause', handlePause);
+    };
+  }, [stream]);
+
   const handleWheelEvent = (e: React.WheelEvent<HTMLVideoElement>) => {
     // deltaY > 0 means scroll down (send negative value to csc), deltaY < 0 means scroll up (send positive)
     const scrollAmount = e.deltaY > 0 ? -120 : 120;
@@ -419,6 +436,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             ref={videoRef} 
             autoPlay 
             playsInline
+            muted
             style={{ 
               width: '100%', 
               height: '100%', 

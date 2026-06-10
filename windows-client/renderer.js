@@ -314,8 +314,9 @@ window.addEventListener('socket-offer', async (e) => {
         mandatory: {
           chromeMediaSource: 'desktop',
           chromeMediaSourceId: primarySource.id,
-          maxWidth: 3840,
-          maxHeight: 2160
+          maxWidth: 1920,
+          maxHeight: 1080,
+          maxFrameRate: 25
         }
       }
     });
