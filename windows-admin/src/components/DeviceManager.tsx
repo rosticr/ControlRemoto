@@ -1079,7 +1079,7 @@ export default function DeviceManager({
     if (isThisConnected && activeTool) {
       const isWindows = selectedDevice.platform === 'windows';
       return (
-        <div className="details-panel" style={{ padding: isWindows ? '16px' : '24px', display: 'flex', flexDirection: 'row', gap: '24px', height: '100%', boxSizing: 'border-box' }}>
+        <div className="details-panel" style={{ padding: isWindows ? '16px' : '24px', display: 'flex', flexDirection: 'row', gap: '24px', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
           {/* Main Area (Screen / Files) */}
           <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)' }}>
             {/* Top Bar for Windows */}
