@@ -320,13 +320,13 @@ function App() {
       )}
  
       {activeView === 'users' && currentUser.role === 'admin' && (
-        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+        <div style={{ flex: 1, background: 'var(--bg-darker)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           <UsersManager serverUrl={currentServerUrl} token={currentUser.token} />
         </div>
       )}
 
       {activeView === 'assets' && (
-        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+        <div style={{ flex: 1, background: 'var(--bg-darker)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           <AssetReport 
             onlineDevicesDetails={onlineDevicesDetails} 
             onBackToDevices={() => setActiveView('devices')} 
@@ -335,7 +335,7 @@ function App() {
       )}
 
       {activeView === 'monitoring' && currentUser.role === 'admin' && (
-        <div style={{ flex: 1, background: 'var(--bg-darker)' }}>
+        <div style={{ flex: 1, background: 'var(--bg-darker)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           <MonitoringManager serverUrl={currentServerUrl} token={currentUser.token} />
         </div>
       )}
