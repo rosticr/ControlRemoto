@@ -107,7 +107,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', cursor: 'pointer', userSelect: 'none' }} onClick={() => setRememberMe(!rememberMe)}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', cursor: 'pointer', userSelect: 'none' }}>
             <input 
               type="checkbox" 
               checked={rememberMe}
@@ -115,7 +115,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
             />
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Recordar credenciales</span>
-          </div>
+          </label>
 
           {error && <div className="error-message">{error}</div>}
 
