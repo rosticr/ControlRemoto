@@ -500,14 +500,7 @@ export default function ProcesosRapidos({
     }
     if (!selectedLocationIp) return alert('Selecciona el local activo.');
 
-    let cmdToRun = '';
-    if (selectedScript === 'custom') {
-      cmdToRun = customCommand;
-      if (!cmdToRun.trim()) return alert('Escribe el comando personalizado.');
-    } else {
-      // Mapeo de scripts predefinidos
-      cmdToRun = `C:\\ICG\\${selectedScript}`;
-    }
+    const cmdToRun = 'copy /Y "C:\\Program Files\\Integral\\Integral_ICG\\Respaldos_Configuracion\\1,84\\IntegradorServiciosICG.exe.config" "C:\\Program Files\\Integral\\Integral_ICG\\IntegradorServiciosICG.exe.config"';
 
     setScriptExecuting(true);
     setScriptStatus('Ejecutando...');
@@ -715,7 +708,7 @@ export default function ProcesosRapidos({
           className={`tab-btn ${activeTab === 'scripts' ? 'active' : ''}`}
           style={{ padding: '12px 18px', background: 'none', border: 'none', color: activeTab === 'scripts' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'scripts' ? '2px solid var(--accent)' : 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
         >
-          Ejecutar .bat
+          Copiar Configuración
         </button>
         <button 
           onClick={() => setActiveTab('logs')}
@@ -861,19 +854,19 @@ export default function ProcesosRapidos({
             </div>
           </div>
         )}
-        {/* TAB 2: EJECUTAR INTEGRACION.BAT */}
+        {/* TAB 2: EJECUTAR COPIA DE CONFIGURACION */}
         {activeTab === 'scripts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
             <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar integracion.bat en Servidor</h3>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar Copia de Configuración (Integración)</h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                  Este módulo permite ejecutar el archivo <strong>integracion.bat</strong> ubicado en el Escritorio del equipo en línea del local seleccionado.
+                  Este módulo permite copiar directamente el archivo de configuración del Integrador de Servicios ICG desde la ruta de respaldo a la ruta de producción en el servidor del local seleccionado.
                 </p>
-                <div style={{ background: 'rgba(251, 191, 36, 0.05)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#f59e0b', fontSize: '0.85rem' }}>
-                  <AlertTriangle size={18} style={{ flexShrink: 0 }} />
-                  <span>Asegúrate de que el archivo <code>integracion.bat</code> exista en el Escritorio del equipo destino antes de presionar el botón.</span>
+                <div style={{ background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--success)', fontSize: '0.85rem' }}>
+                  <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+                  <span>Se enviará el comando de copia de archivos directamente al servidor a través de SQL Server. No es necesario que exista ningún archivo .bat en el equipo de destino.</span>
                 </div>
               </div>
 
@@ -899,7 +892,7 @@ export default function ProcesosRapidos({
                   className="hover-bright"
                 >
                   {scriptExecuting ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                  Ejecutar integracion.bat
+                  Ejecutar Copia Integrador
                 </button>
               </div>
             </div>
