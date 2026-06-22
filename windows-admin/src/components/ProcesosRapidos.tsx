@@ -34,6 +34,7 @@ export default function ProcesosRapidos({
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedLocationIp, setSelectedLocationIp] = useState<string>('');
   const [locationSearch, setLocationSearch] = useState<string>('');
+  const [connectionMode, setConnectionMode] = useState<'direct' | 'vpn'>('direct');
 
   // --- Configuración de VPN ---
   const [vpnGateway, setVpnGateway] = useState<string>('');
@@ -290,7 +291,7 @@ export default function ProcesosRapidos({
 
     // Consultar estado inicial del VPN periódicamente
     const interval = setInterval(() => {
-      if (selectedDevice) {
+      if (connectionMode === 'vpn' && selectedDevice) {
         socket.emit('vpn-status-request', { roomId: selectedDevice });
       }
     }, 5000);
@@ -303,7 +304,7 @@ export default function ProcesosRapidos({
       socket.off('execute-script-response');
       clearInterval(interval);
     };
-  }, [socket, selectedDevice]);
+  }, [socket, selectedDevice, connectionMode]);
 
   // Cambiar de dispositivo de ejecución
   useEffect(() => {
@@ -313,6 +314,32 @@ export default function ProcesosRapidos({
       setSelectedDevice(winDevices[0].roomId);
     }
   }, [onlineDevicesDetails]);
+
+  // Obtener el dispositivo ejecutor final basado en el modo de conexión y local activo
+  const getTargetExecutorDevice = () => {
+    if (connectionMode === 'vpn') {
+      return selectedDevice; // Dispositivo Puente manual (e.g. RostiWeb)
+    }
+    // Modo Directo: Buscar el dispositivo online correspondiente al local activo
+    const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+    if (!activeLoc) return '';
+    
+    const cleanName = activeLoc.name.toLowerCase().trim();
+    
+    // 1. Buscar por nombre de grupo exacto (ej. "Coronado" o "Sabanilla")
+    let match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.group?.toLowerCase()?.trim() === cleanName);
+    if (match) return match.roomId;
+    
+    // 2. Buscar si el nombre en specs contiene el nombre del local
+    match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.name?.toLowerCase()?.includes(cleanName));
+    if (match) return match.roomId;
+    
+    // 3. Buscar si el roomId contiene el nombre del local
+    match = onlineDevicesDetails.find(d => d.isWindows && d.roomId?.toLowerCase()?.includes(cleanName));
+    if (match) return match.roomId;
+    
+    return '';
+  };
 
   // --- Filtros de Seguridad de Usuario ---
   const getMappedUser = () => {
@@ -365,7 +392,16 @@ export default function ProcesosRapidos({
 
   // --- Acciones de Consulta ---
   const handleQueryClick = (queryObj: any) => {
-    if (!selectedDevice) return alert('Por favor, selecciona un dispositivo puente en la parte superior.');
+    const executorDevice = getTargetExecutorDevice();
+    if (!executorDevice) {
+      if (connectionMode === 'direct') {
+        const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+        const locName = activeLoc ? activeLoc.name : 'el local seleccionado';
+        return alert(`No se encontró ningún equipo online en el local "${locName}". Asegúrate de que el equipo del local está encendido y tiene instalada la aplicación ControlRemoto.`);
+      } else {
+        return alert('Por favor, selecciona un dispositivo puente online en la parte superior.');
+      }
+    }
     if (!selectedLocationIp) return alert('Por favor, selecciona el local activo.');
 
     if (queryObj.prompts && queryObj.prompts.length > 0) {
@@ -389,7 +425,9 @@ export default function ProcesosRapidos({
   };
 
   const runQuery = (queryString: string, args: string[]) => {
-    if (!socket || !selectedDevice) return;
+    const executorDevice = getTargetExecutorDevice();
+    if (!socket || !executorDevice) return;
+    
     setQueryExecuting(true);
     setResultsMessage('Enviando consulta SQL al agente...');
     setResultsData(null);
@@ -408,10 +446,8 @@ export default function ProcesosRapidos({
     setLogs(updatedLogs);
     saveState(locations, users, updatedLogs);
 
-    // Si auto-conectar vpn está activo, podemos enviar la consulta directamente.
-    // El agente se encargará de levantar el túnel o asegurar la conexión
     socket.emit('execute-query', {
-      roomId: selectedDevice,
+      roomId: executorDevice,
       ip: selectedLocationIp,
       db: dbName,
       query: queryString
@@ -420,7 +456,16 @@ export default function ProcesosRapidos({
 
   // --- Acciones de Script ---
   const handleRunScript = () => {
-    if (!socket || !selectedDevice) return alert('Selecciona un dispositivo puente online.');
+    const executorDevice = getTargetExecutorDevice();
+    if (!socket || !executorDevice) {
+      if (connectionMode === 'direct') {
+        const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+        const locName = activeLoc ? activeLoc.name : 'el local seleccionado';
+        return alert(`No se encontró ningún equipo online en el local "${locName}". Asegúrate de que el equipo del local está encendido y tiene instalada la aplicación.`);
+      } else {
+        return alert('Selecciona un dispositivo puente online.');
+      }
+    }
     if (!selectedLocationIp) return alert('Selecciona el local activo.');
 
     let cmdToRun = '';
@@ -449,7 +494,7 @@ export default function ProcesosRapidos({
     saveState(locations, users, updatedLogs);
 
     socket.emit('execute-script', {
-      roomId: selectedDevice,
+      roomId: executorDevice,
       ip: selectedLocationIp,
       command: cmdToRun
     });
@@ -559,23 +604,38 @@ export default function ProcesosRapidos({
       {/* Header Bar */}
       <header className="topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)', flexShrink: 0, gap: '16px', flexWrap: 'wrap' }}>
         
-        {/* Dispositivo Puente Dropdown */}
+        {/* Modo de Conexión Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dispositivo Puente:</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Conexión:</span>
           <select 
-            value={selectedDevice}
-            onChange={(e) => setSelectedDevice(e.target.value)}
-            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '6px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
+            value={connectionMode}
+            onChange={(e) => setConnectionMode(e.target.value as 'direct' | 'vpn')}
+            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '6px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
           >
-            {winDevices.length === 0 ? (
-              <option value="">No hay equipos Windows online</option>
-            ) : (
-              winDevices.map(d => (
-                <option key={d.roomId} value={d.roomId}>{d.specs?.name || d.roomId}</option>
-              ))
-            )}
+            <option value="direct">Directa (Sin VPN - Usa equipo local)</option>
+            <option value="vpn">Puente + VPN (Usa RostiWeb + VPN)</option>
           </select>
         </div>
+
+        {/* Dispositivo Puente Dropdown - Solo modo VPN */}
+        {connectionMode === 'vpn' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dispositivo Puente:</span>
+            <select 
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '6px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              {winDevices.length === 0 ? (
+                <option value="">No hay equipos Windows online</option>
+              ) : (
+                winDevices.map(d => (
+                  <option key={d.roomId} value={d.roomId}>{d.specs?.name || d.roomId}</option>
+                ))
+              )}
+            </select>
+          </div>
+        )}
 
         {/* Local Selector (Database selector) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '300px', maxWidth: '600px' }}>
@@ -606,25 +666,62 @@ export default function ProcesosRapidos({
           </select>
         </div>
 
-        {/* VPN Status indicator in Header */}
-        <div 
-          onClick={() => setActiveTab('vpn')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '6px 14px', 
-            borderRadius: '20px', 
-            background: vpnStatus === 'connected' ? 'rgba(16,185,129,0.1)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', 
-            color: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444',
-            fontSize: '0.85rem',
-            cursor: 'pointer',
-            border: `1px solid ${vpnStatus === 'connected' ? 'rgba(16,185,129,0.2)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`
-          }}
-        >
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444', display: 'inline-block' }}></span>
-          <span>VPN: {vpnStatus === 'connected' ? 'Conectado' : vpnStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}</span>
-        </div>
+        {/* VPN Status indicator - Solo en modo VPN */}
+        {connectionMode === 'vpn' && (
+          <div 
+            onClick={() => setActiveTab('vpn')}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              padding: '6px 14px', 
+              borderRadius: '20px', 
+              background: vpnStatus === 'connected' ? 'rgba(16,185,129,0.1)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', 
+              color: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              border: `1px solid ${vpnStatus === 'connected' ? 'rgba(16,185,129,0.2)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`
+            }}
+          >
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444', display: 'inline-block' }}></span>
+            <span>VPN: {vpnStatus === 'connected' ? 'Conectado' : vpnStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}</span>
+          </div>
+        )}
+
+        {/* Direct Mode Status Badge - Solo en modo Directo */}
+        {connectionMode === 'direct' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {(() => {
+              const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+              if (!activeLoc) {
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px solid var(--border)' }}>
+                    <span>Selecciona un local para validar</span>
+                  </div>
+                );
+              }
+              const executorRoomId = getTargetExecutorDevice();
+              if (executorRoomId) {
+                const devObj = onlineDevicesDetails.find(d => d.roomId === executorRoomId);
+                const devName = devObj ? (devObj.specs?.name || devObj.roomId) : executorRoomId;
+                const devGroup = devObj ? (devObj.specs?.group) : '';
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontSize: '0.85rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
+                    <span>Directo: {devName} {devGroup ? `(${devGroup})` : ''}</span>
+                  </div>
+                );
+              } else {
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }}></span>
+                    <span>No hay equipos online en {activeLoc.name}</span>
+                  </div>
+                );
+              }
+            })()}
+          </div>
+        )}
       </header>
 
       {/* Tabs Selector */}
@@ -870,6 +967,12 @@ export default function ProcesosRapidos({
         {activeTab === 'vpn' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '600px', margin: '0 auto' }}>
             <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {connectionMode === 'direct' && (
+                <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text-main)', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--accent)' }}>ℹ️ Modo Conexión Directa Activo</span>
+                  <span style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>Actualmente las consultas se envían directamente a los equipos de cada local, sin pasar por VPN. Para usar este panel de VPN, cambia el modo de conexión a "Puente + VPN" en la barra superior.</span>
+                </div>
+              )}
               <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--primary)', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Ajustes de VPN SSL Fortinet / FortiGate</h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
