@@ -321,6 +321,12 @@ export default function ProcesosRapidos({
     const activeLoc = locations.find(l => l.ip === selectedLocationIp);
     if (!activeLoc) return '';
     
+    // Helper to normalize strings for comparison (remove accents, lowercase, trim)
+    const normalizeStr = (str: string | undefined | null) => {
+      if (!str) return '';
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    };
+    
     // 1. Si el local tiene un dispositivo configurado explícitamente, usarlo si está online
     if (activeLoc.deviceId) {
       const isOnline = onlineDevicesDetails.some(d => d.isWindows && d.roomId === activeLoc.deviceId);
@@ -328,18 +334,26 @@ export default function ProcesosRapidos({
     }
     
     // 2. Si no tiene o está offline, intentar autodetectar por nombre/grupo
-    const cleanName = activeLoc.name.toLowerCase().trim();
+    const cleanName = normalizeStr(activeLoc.name);
     
     // 2.1. Buscar por nombre de grupo exacto (ej. "Coronado" o "Sabanilla")
-    let match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.group?.toLowerCase()?.trim() === cleanName);
+    let match = onlineDevicesDetails.find(d => d.isWindows && normalizeStr(d.specs?.group) === cleanName);
     if (match) return match.roomId;
     
-    // 2.2. Buscar si el nombre en specs contiene el nombre del local
-    match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.name?.toLowerCase()?.includes(cleanName));
+    // 2.2. Buscar si el nombre en specs contiene el nombre del local o viceversa
+    match = onlineDevicesDetails.find(d => {
+      if (!d.isWindows) return false;
+      const devName = normalizeStr(d.specs?.name);
+      return devName.includes(cleanName) || cleanName.includes(devName);
+    });
     if (match) return match.roomId;
     
-    // 2.3. Buscar si el roomId contiene el nombre del local
-    match = onlineDevicesDetails.find(d => d.isWindows && d.roomId?.toLowerCase()?.includes(cleanName));
+    // 2.3. Buscar si el roomId contiene el nombre del local o viceversa
+    match = onlineDevicesDetails.find(d => {
+      if (!d.isWindows) return false;
+      const devId = normalizeStr(d.roomId);
+      return devId.includes(cleanName) || cleanName.includes(devId);
+    });
     if (match) return match.roomId;
     
     return '';

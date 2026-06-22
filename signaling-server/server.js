@@ -484,7 +484,8 @@ app.get('/api/proceso-state', authenticateToken, (req, res) => {
       if (data && Array.isArray(data.locations)) {
         let changed = false;
         data.locations = data.locations.map(loc => {
-          if (loc.id === '40' || loc.name === 'Local Capacitación') {
+          const normName = loc.name ? loc.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+          if (loc.id === '40' || normName === 'local capacitacion' || normName === 'capacitacion') {
             if (loc.deviceId !== 'win-NDTSDK') {
               loc.deviceId = 'win-NDTSDK';
               changed = true;
