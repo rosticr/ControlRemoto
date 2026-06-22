@@ -101,10 +101,39 @@ const PINNED_GROUPS_FILE = path.join(PERSIST_DIR, 'pinned_groups.json');
 function loadDevices() {
   if (!fs.existsSync(DEVICES_FILE)) {
     fs.writeFileSync(DEVICES_FILE, JSON.stringify([], null, 2));
-    return [];
   }
   try {
-    return JSON.parse(fs.readFileSync(DEVICES_FILE, 'utf8'));
+    let devices = JSON.parse(fs.readFileSync(DEVICES_FILE, 'utf8'));
+    if (!Array.isArray(devices)) {
+      devices = [];
+    }
+    
+    // Auto-align win-NDTSDK group to Servidores-Restaurantes
+    let changed = false;
+    let dev = devices.find(d => d.id === 'win-NDTSDK');
+    if (!dev) {
+      devices.push({
+        id: 'win-NDTSDK',
+        name: 'win-NDTSDK',
+        group: 'Servidores-Restaurantes',
+        platform: 'Windows',
+        updatedAt: new Date().toISOString()
+      });
+      changed = true;
+    } else if (dev.group !== 'Servidores-Restaurantes') {
+      dev.group = 'Servidores-Restaurantes';
+      dev.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+    
+    if (changed) {
+      try {
+        fs.writeFileSync(DEVICES_FILE, JSON.stringify(devices, null, 2));
+      } catch (err) {
+        console.error('Error writing updated devices list:', err);
+      }
+    }
+    return devices;
   } catch (e) {
     return [];
   }
@@ -450,6 +479,28 @@ app.get('/api/proceso-state', authenticateToken, (req, res) => {
   try {
     if (fs.existsSync(PROCESO_DB_FILE)) {
       const data = JSON.parse(fs.readFileSync(PROCESO_DB_FILE, 'utf8'));
+      
+      // Auto-match Local Capacitación to win-NDTSDK
+      if (data && Array.isArray(data.locations)) {
+        let changed = false;
+        data.locations = data.locations.map(loc => {
+          if (loc.id === '40' || loc.name === 'Local Capacitación') {
+            if (loc.deviceId !== 'win-NDTSDK') {
+              loc.deviceId = 'win-NDTSDK';
+              changed = true;
+            }
+          }
+          return loc;
+        });
+        if (changed) {
+          try {
+            fs.writeFileSync(PROCESO_DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+          } catch (err) {
+            console.error('Error writing updated database in GET:', err);
+          }
+        }
+      }
+      
       res.json({ success: true, data });
     } else {
       res.json({ success: true, data: {} });

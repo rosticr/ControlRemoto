@@ -68,6 +68,7 @@ export default function ProcesosRapidos({
   const [newLocalName, setNewLocalName] = useState('');
   const [newLocalIp, setNewLocalIp] = useState('');
   const [newLocalDb, setNewLocalDb] = useState('dbfrest');
+  const [newLocalDeviceId, setNewLocalDeviceId] = useState('');
 
   // --- Mantenimiento Usuarios ---
   const [isEditingUser, setIsEditingUser] = useState<any | null>(null);
@@ -198,7 +199,7 @@ export default function ProcesosRapidos({
           { id: '37', name: 'Ventanita Tres Rios', ip: '10.2.6.20', db: 'dbfrest' },
           { id: '38', name: 'Ventanita Guachipelin', ip: '10.1.26.10', db: 'dbfrest' },
           { id: '39', name: 'Multicentro', ip: '10.1.42.2', db: 'dbfrest' },
-          { id: '40', name: 'Local Capacitación', ip: '10.29.1.18', db: 'dbfrestpruebas' },
+          { id: '40', name: 'Local Capacitación', ip: '10.29.1.18', db: 'dbfrestpruebas', deviceId: 'win-NDTSDK' },
           { id: '41', name: 'Ventanita San Isidro', ip: '10.2.14.20', db: 'dbfrest' }
         ];
         const defaultUsers = [
@@ -317,24 +318,27 @@ export default function ProcesosRapidos({
 
   // Obtener el dispositivo ejecutor final basado en el modo de conexión y local activo
   const getTargetExecutorDevice = () => {
-    if (connectionMode === 'vpn') {
-      return selectedDevice; // Dispositivo Puente manual (e.g. RostiWeb)
-    }
-    // Modo Directo: Buscar el dispositivo online correspondiente al local activo
     const activeLoc = locations.find(l => l.ip === selectedLocationIp);
     if (!activeLoc) return '';
     
+    // 1. Si el local tiene un dispositivo configurado explícitamente, usarlo si está online
+    if (activeLoc.deviceId) {
+      const isOnline = onlineDevicesDetails.some(d => d.isWindows && d.roomId === activeLoc.deviceId);
+      if (isOnline) return activeLoc.deviceId;
+    }
+    
+    // 2. Si no tiene o está offline, intentar autodetectar por nombre/grupo
     const cleanName = activeLoc.name.toLowerCase().trim();
     
-    // 1. Buscar por nombre de grupo exacto (ej. "Coronado" o "Sabanilla")
+    // 2.1. Buscar por nombre de grupo exacto (ej. "Coronado" o "Sabanilla")
     let match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.group?.toLowerCase()?.trim() === cleanName);
     if (match) return match.roomId;
     
-    // 2. Buscar si el nombre en specs contiene el nombre del local
+    // 2.2. Buscar si el nombre en specs contiene el nombre del local
     match = onlineDevicesDetails.find(d => d.isWindows && d.specs?.name?.toLowerCase()?.includes(cleanName));
     if (match) return match.roomId;
     
-    // 3. Buscar si el roomId contiene el nombre del local
+    // 2.3. Buscar si el roomId contiene el nombre del local
     match = onlineDevicesDetails.find(d => d.isWindows && d.roomId?.toLowerCase()?.includes(cleanName));
     if (match) return match.roomId;
     
@@ -506,14 +510,15 @@ export default function ProcesosRapidos({
     let updatedLocs = [...locations];
     if (isEditingLocal && isEditingLocal.id) {
       // Editar
-      updatedLocs = locations.map(l => l.id === isEditingLocal.id ? { ...l, name: newLocalName, ip: newLocalIp, db: newLocalDb } : l);
+      updatedLocs = locations.map(l => l.id === isEditingLocal.id ? { ...l, name: newLocalName, ip: newLocalIp, db: newLocalDb, deviceId: newLocalDeviceId } : l);
     } else {
       // Nuevo
       updatedLocs.push({
         id: (Date.now() + Math.random()).toString().substring(5),
         name: newLocalName,
         ip: newLocalIp,
-        db: newLocalDb
+        db: newLocalDb,
+        deviceId: newLocalDeviceId
       });
     }
     setLocations(updatedLocs);
@@ -966,7 +971,6 @@ export default function ProcesosRapidos({
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', outline: 'none', fontSize: '0.85rem' }}
                   />
                 </div>
-
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Nombre de BD (ICG)</label>
                   <input
@@ -976,6 +980,22 @@ export default function ProcesosRapidos({
                     placeholder="Ej: dbfrest"
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', outline: 'none', fontSize: '0.85rem' }}
                   />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Dispositivo ControlRemoto Asignado</label>
+                  <select
+                    value={newLocalDeviceId}
+                    onChange={(e) => setNewLocalDeviceId(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '8px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    <option value="">-- Autodetectar por Nombre / Grupo --</option>
+                    {winDevices.map(d => (
+                      <option key={d.roomId} value={d.roomId}>
+                        {d.specs?.name || d.roomId} {d.specs?.group ? `[${d.specs.group}]` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
@@ -994,6 +1014,7 @@ export default function ProcesosRapidos({
                     setNewLocalName('');
                     setNewLocalIp('');
                     setNewLocalDb('dbfrest');
+                    setNewLocalDeviceId('');
                   }}
                   style={{ padding: '6px 14px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
@@ -1010,6 +1031,7 @@ export default function ProcesosRapidos({
                     <th style={{ padding: '12px 16px' }}>Nombre</th>
                     <th style={{ padding: '12px 16px' }}>IP Base Datos</th>
                     <th style={{ padding: '12px 16px' }}>Base Datos</th>
+                    <th style={{ padding: '12px 16px' }}>Equipo Asignado</th>
                     <th style={{ padding: '12px 16px' }}>Acciones</th>
                   </tr>
                 </thead>
@@ -1020,6 +1042,20 @@ export default function ProcesosRapidos({
                       <td style={{ padding: '12px 16px', fontWeight: 600 }}>{loc.name}</td>
                       <td style={{ padding: '12px 16px', fontFamily: 'monospace' }}>{loc.ip}</td>
                       <td style={{ padding: '12px 16px' }}>{loc.db}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        {(() => {
+                          if (loc.deviceId) {
+                            const devObj = onlineDevicesDetails.find(d => d.roomId === loc.deviceId);
+                            const isOnline = !!devObj;
+                            return (
+                              <span style={{ color: isOnline ? 'var(--success)' : 'var(--text-muted)', fontWeight: isOnline ? 600 : 'normal' }}>
+                                {isOnline ? '🟢' : '⚫'} {devObj?.specs?.name || loc.deviceId}
+                              </span>
+                            );
+                          }
+                          return <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Auto-detectar</span>;
+                        })()}
+                      </td>
                       <td style={{ padding: '12px 16px', display: 'flex', gap: '10px' }}>
                         <button
                           onClick={() => {
@@ -1027,6 +1063,7 @@ export default function ProcesosRapidos({
                             setNewLocalName(loc.name);
                             setNewLocalIp(loc.ip);
                             setNewLocalDb(loc.db);
+                            setNewLocalDeviceId(loc.deviceId || '');
                           }}
                           style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }}
                           title="Editar"
