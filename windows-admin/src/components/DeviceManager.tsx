@@ -1663,7 +1663,7 @@ export default function DeviceManager({
   };
 
   return (
-    <div className={`device-manager-layout ${selectedDevice ? 'has-selected-device' : ''}`} style={{ display: 'flex', flex: 1, width: '100%', height: '100%' }}>
+    <div className={`device-manager-layout ${selectedDevice ? 'has-selected-device' : ''}`} style={{ display: 'flex', flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}>
       {(!isConnected || activeTool === null) && renderList()}
       {renderDetails()}
     </div>

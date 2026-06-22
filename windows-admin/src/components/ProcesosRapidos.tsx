@@ -708,7 +708,7 @@ export default function ProcesosRapidos({
           className={`tab-btn ${activeTab === 'scripts' ? 'active' : ''}`}
           style={{ padding: '12px 18px', background: 'none', border: 'none', color: activeTab === 'scripts' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'scripts' ? '2px solid var(--accent)' : 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
         >
-          Copiar Configuración
+          Integración Uber
         </button>
         <button 
           onClick={() => setActiveTab('logs')}
@@ -854,11 +854,11 @@ export default function ProcesosRapidos({
             </div>
           </div>
         )}
-        {/* TAB 2: EJECUTAR COPIA DE CONFIGURACION */}
+        {/* TAB 2: EJECUTAR INTEGRACION UBER */}
         {activeTab === 'scripts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
             <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar Copia de Configuración (Integración)</h3>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar Integración Uber</h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
