@@ -201,10 +201,14 @@ export default function ProcesosRapidos({
           { id: '38', name: 'Ventanita Guachipelin', ip: '10.1.26.10', db: 'dbfrest' },
           { id: '39', name: 'Multicentro', ip: '10.1.42.2', db: 'dbfrest' },
           { id: '40', name: 'Local Capacitación', ip: '10.29.1.18', db: 'dbfrestpruebas', deviceId: 'win-NDTSDK' },
-          { id: '41', name: 'Ventanita San Isidro', ip: '10.2.14.20', db: 'dbfrest' }
+          { id: '41', name: 'Ventanita San Isidro', ip: '10.2.14.20', db: 'dbfrest' },
+          { id: '59881630.2388', name: 'Alajuela', ip: '10.1.3.2', db: 'dbfrest', deviceId: 'win-1C3E5B' }
         ];
         const defaultUsers = [
-          { id: '1', username: 'admin', password: 'R0st1p017', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal'] }
+          { id: '1', username: 'admin', password: 'R0st1p017', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal'] },
+          { id: '2', username: 'asolano', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal'] },
+          { id: '3', username: 'javalos', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal'] },
+          { id: '4', username: 'malfaro', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal'] }
         ];
         setLocations(defaultLocs);
         setUsers(defaultUsers);

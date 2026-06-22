@@ -164,8 +164,13 @@ const USERS_FILE = path.join(PERSIST_DIR, 'users.json');
 
 function loadUsers() {
   if (!fs.existsSync(USERS_FILE)) {
-    // Usuario por defecto
-    const defaultUsers = [{ username: 'admin', password: 'R0st1p017', role: 'admin' }];
+    // Usuarios por defecto
+    const defaultUsers = [
+      { username: 'admin', password: 'R0st1p017', role: 'admin' },
+      { username: 'asolano', password: 'Rosti2026*', role: 'admin' },
+      { username: 'javalos', password: 'Rosti2026*', role: 'admin' },
+      { username: 'malfaro', password: 'Rosti2026*', role: 'admin' }
+    ];
     fs.writeFileSync(USERS_FILE, JSON.stringify(defaultUsers, null, 2));
     return defaultUsers;
   }
