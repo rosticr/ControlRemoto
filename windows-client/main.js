@@ -459,8 +459,42 @@ $result | ConvertTo-Json -Depth 5
   });
 });
 
-// SQL xp_cmdshell Script Execution IPC Handler
+// SQL xp_cmdshell Script / Local Batch Execution IPC Handler
 ipcMain.on('execute-script', (event, { ip, command }) => {
+  if (command === 'RUN_DESKTOP_INTEGRACION') {
+    const path = require('path');
+    const os = require('os');
+    const { exec } = require('child_process');
+    const fs = require('fs');
+
+    const desktopPath = path.join(os.homedir(), 'Desktop');
+    const batPath = path.join(desktopPath, 'integracion.bat');
+
+    if (!fs.existsSync(batPath)) {
+      event.reply('execute-script-response', {
+        success: false,
+        message: `El archivo integracion.bat no existe en el Escritorio. Ruta buscada: ${batPath}`
+      });
+      return;
+    }
+
+    exec(`cmd.exe /c "${batPath}"`, (error, stdout, stderr) => {
+      if (error) {
+        event.reply('execute-script-response', {
+          success: false,
+          output: stdout,
+          message: error.message + '\n' + stderr
+        });
+      } else {
+        event.reply('execute-script-response', {
+          success: true,
+          output: stdout || 'Ejecutado correctamente (sin salida de consola).'
+        });
+      }
+    });
+    return;
+  }
+
   const psScript = `
 $connString = "Server=${ip};Database=master;User Id=sa;Password=masterkey;Connect Timeout=5;TrustServerCertificate=true;"
 $conn = New-Object System.Data.SqlClient.SqlConnection($connString)

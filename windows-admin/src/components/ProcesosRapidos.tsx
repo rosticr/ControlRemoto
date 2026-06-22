@@ -602,41 +602,9 @@ export default function ProcesosRapidos({
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-darker)', overflow: 'hidden' }}>
       
       {/* Header Bar */}
+      {/* Header Bar */}
       <header className="topbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)', flexShrink: 0, gap: '16px', flexWrap: 'wrap' }}>
         
-        {/* Modo de Conexión Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Conexión:</span>
-          <select 
-            value={connectionMode}
-            onChange={(e) => setConnectionMode(e.target.value as 'direct' | 'vpn')}
-            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '6px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
-          >
-            <option value="direct">Directa (Sin VPN - Usa equipo local)</option>
-            <option value="vpn">Puente + VPN (Usa RostiWeb + VPN)</option>
-          </select>
-        </div>
-
-        {/* Dispositivo Puente Dropdown - Solo modo VPN */}
-        {connectionMode === 'vpn' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dispositivo Puente:</span>
-            <select 
-              value={selectedDevice}
-              onChange={(e) => setSelectedDevice(e.target.value)}
-              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '6px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              {winDevices.length === 0 ? (
-                <option value="">No hay equipos Windows online</option>
-              ) : (
-                winDevices.map(d => (
-                  <option key={d.roomId} value={d.roomId}>{d.specs?.name || d.roomId}</option>
-                ))
-              )}
-            </select>
-          </div>
-        )}
-
         {/* Local Selector (Database selector) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '300px', maxWidth: '600px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Local Activo:</span>
@@ -666,62 +634,38 @@ export default function ProcesosRapidos({
           </select>
         </div>
 
-        {/* VPN Status indicator - Solo en modo VPN */}
-        {connectionMode === 'vpn' && (
-          <div 
-            onClick={() => setActiveTab('vpn')}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px', 
-              padding: '6px 14px', 
-              borderRadius: '20px', 
-              background: vpnStatus === 'connected' ? 'rgba(16,185,129,0.1)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', 
-              color: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              border: `1px solid ${vpnStatus === 'connected' ? 'rgba(16,185,129,0.2)' : vpnStatus === 'connecting' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`
-            }}
-          >
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: vpnStatus === 'connected' ? 'var(--success)' : vpnStatus === 'connecting' ? '#f59e0b' : '#ef4444', display: 'inline-block' }}></span>
-            <span>VPN: {vpnStatus === 'connected' ? 'Conectado' : vpnStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}</span>
-          </div>
-        )}
-
-        {/* Direct Mode Status Badge - Solo en modo Directo */}
-        {connectionMode === 'direct' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {(() => {
-              const activeLoc = locations.find(l => l.ip === selectedLocationIp);
-              if (!activeLoc) {
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px solid var(--border)' }}>
-                    <span>Selecciona un local para validar</span>
-                  </div>
-                );
-              }
-              const executorRoomId = getTargetExecutorDevice();
-              if (executorRoomId) {
-                const devObj = onlineDevicesDetails.find(d => d.roomId === executorRoomId);
-                const devName = devObj ? (devObj.specs?.name || devObj.roomId) : executorRoomId;
-                const devGroup = devObj ? (devObj.specs?.group) : '';
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontSize: '0.85rem', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
-                    <span>Directo: {devName} {devGroup ? `(${devGroup})` : ''}</span>
-                  </div>
-                );
-              } else {
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', border: '1px solid rgba(239,68,68,0.2)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }}></span>
-                    <span>No hay equipos online en {activeLoc.name}</span>
-                  </div>
-                );
-              }
-            })()}
-          </div>
-        )}
+        {/* Direct Connection Status Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {(() => {
+            const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+            if (!activeLoc) {
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px solid var(--border)' }}>
+                  <span>Selecciona un local para validar conexión</span>
+                </div>
+              );
+            }
+            const executorRoomId = getTargetExecutorDevice();
+            if (executorRoomId) {
+              const devObj = onlineDevicesDetails.find(d => d.roomId === executorRoomId);
+              const devName = devObj ? (devObj.specs?.name || devObj.roomId) : executorRoomId;
+              const devGroup = devObj ? (devObj.specs?.group) : '';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', fontSize: '0.85rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
+                  <span>Conexión Directa: {devName} {devGroup ? `(${devGroup})` : ''}</span>
+                </div>
+              );
+            } else {
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }}></span>
+                  <span>No hay equipos online en {activeLoc.name}</span>
+                </div>
+              );
+            }
+          })()}
+        </div>
       </header>
 
       {/* Tabs Selector */}
@@ -739,13 +683,6 @@ export default function ProcesosRapidos({
           style={{ padding: '12px 18px', background: 'none', border: 'none', color: activeTab === 'scripts' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'scripts' ? '2px solid var(--accent)' : 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
         >
           Ejecutar .bat
-        </button>
-        <button 
-          onClick={() => setActiveTab('vpn')}
-          className={`tab-btn ${activeTab === 'vpn' ? 'active' : ''}`}
-          style={{ padding: '12px 18px', background: 'none', border: 'none', color: activeTab === 'vpn' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'vpn' ? '2px solid var(--accent)' : 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
-        >
-          VPN SSL Fortinet
         </button>
         <button 
           onClick={() => setActiveTab('logs')}
@@ -891,188 +828,57 @@ export default function ProcesosRapidos({
             </div>
           </div>
         )}
-
-        {/* TAB 2: EJECUTAR SCRIPTS (.BAT) */}
+        {/* TAB 2: EJECUTAR INTEGRACION.BAT */}
         {activeTab === 'scripts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
             <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar Script Remoto en Local</h3>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--primary)' }}>Ejecutar integracion.bat en Servidor</h3>
               
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '240px' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Selecciona el archivo .bat o Comando:</label>
-                  <select
-                    value={selectedScript}
-                    onChange={(e) => setSelectedScript(e.target.value)}
-                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: 'white', padding: '8px 12px', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <option value="servicio_uber.bat">servicio_uber.bat (Caso 5: Copiar conf IntegradorServiciosICG)</option>
-                    <option value="reiniciar_servicio.bat">reiniciar_servicio.bat (Reinicia los servicios base)</option>
-                    <option value="limpiar_temporales.bat">limpiar_temporales.bat (Libera espacio en el equipo)</option>
-                    <option value="actualizar_db.bat">actualizar_db.bat (Fuerza sync de BD local)</option>
-                    <option value="custom">-- Escribir comando personalizado --</option>
-                  </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                  Este módulo permite ejecutar el archivo <strong>integracion.bat</strong> ubicado en el Escritorio del equipo en línea del local seleccionado.
+                </p>
+                <div style={{ background: 'rgba(251, 191, 36, 0.05)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#f59e0b', fontSize: '0.85rem' }}>
+                  <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                  <span>Asegúrate de que el archivo <code>integracion.bat</code> exista en el Escritorio del equipo destino antes de presionar el botón.</span>
                 </div>
+              </div>
 
+              <div style={{ display: 'flex', marginTop: '8px' }}>
                 <button
                   onClick={handleRunScript}
                   disabled={scriptExecuting}
                   style={{ 
-                    padding: '8px 20px', 
+                    padding: '12px 24px', 
                     background: 'var(--primary)', 
                     color: 'white', 
                     border: 'none', 
                     borderRadius: '8px', 
                     fontWeight: 600, 
-                    fontSize: '0.85rem', 
+                    fontSize: '0.9rem', 
                     cursor: 'pointer', 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '8px' 
+                    gap: '10px',
+                    boxShadow: '0 4px 12px rgba(255, 87, 34, 0.2)',
+                    transition: 'all 0.2s'
                   }}
                   className="hover-bright"
                 >
-                  {scriptExecuting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-                  Lanzar Script
+                  {scriptExecuting ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
+                  Ejecutar integracion.bat
                 </button>
               </div>
-
-              {selectedScript === 'custom' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Escribe el comando personalizado:</label>
-                  <textarea
-                    value={customCommand}
-                    onChange={(e) => setCustomCommand(e.target.value)}
-                    placeholder="Ej: C:\ICG\mi_script.bat o comando shell..."
-                    style={{ width: '100%', height: '80px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', color: '#a78bfa', padding: '12px', borderRadius: '8px', outline: 'none', fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Green-on-black Console */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', minHeight: '300px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Consola de Salida (CMD/Output)</h4>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Estado: {scriptStatus}</span>
               </div>
               <div style={{ flex: 1, background: '#000', padding: '20px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#10b981', whiteSpace: 'pre-wrap' }}>
                 {scriptConsoleOutput}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: CONFIGURACIÓN DE VPN SSL */}
-        {activeTab === 'vpn' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '600px', margin: '0 auto' }}>
-            <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {connectionMode === 'direct' && (
-                <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text-main)', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--accent)' }}>ℹ️ Modo Conexión Directa Activo</span>
-                  <span style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>Actualmente las consultas se envían directamente a los equipos de cada local, sin pasar por VPN. Para usar este panel de VPN, cambia el modo de conexión a "Puente + VPN" en la barra superior.</span>
-                </div>
-              )}
-              <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--primary)', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Ajustes de VPN SSL Fortinet / FortiGate</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>VPN Gateway (Servidor IP:Puerto)</label>
-                  <input
-                    type="text"
-                    value={vpnGateway}
-                    onChange={(e) => setVpnGateway(e.target.value)}
-                    placeholder="Ej: vpn.rostipolloscr.com:10443"
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', outline: 'none', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Usuario VPN</label>
-                  <input
-                    type="text"
-                    value={vpnUser}
-                    onChange={(e) => setVpnUser(e.target.value)}
-                    placeholder="Ej: asolano"
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', outline: 'none', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Contraseña VPN</label>
-                  <input
-                    type="password"
-                    value={vpnPassword}
-                    onChange={(e) => setVpnPassword(e.target.value)}
-                    placeholder="••••••••"
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', outline: 'none', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                  <input
-                    type="checkbox"
-                    id="auto-vpn"
-                    checked={vpnAutoConnect}
-                    onChange={(e) => setVpnAutoConnect(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <label htmlFor="auto-vpn" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>Auto-conectar VPN antes de ejecutar consultas</label>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                <button
-                  onClick={handleVpnConnect}
-                  disabled={vpnActionLoading || vpnStatus === 'connected'}
-                  style={{ 
-                    flex: 1,
-                    padding: '10px 16px', 
-                    background: 'var(--primary)', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '8px', 
-                    fontWeight: 600, 
-                    fontSize: '0.85rem', 
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                  className="hover-bright"
-                >
-                  {vpnActionLoading && vpnStatus === 'connecting' ? <Loader2 size={16} className="animate-spin" /> : <Wifi size={16} />}
-                  Conectar VPN
-                </button>
-
-                <button
-                  onClick={handleVpnDisconnect}
-                  disabled={vpnActionLoading || vpnStatus === 'disconnected'}
-                  style={{ 
-                    flex: 1,
-                    padding: '10px 16px', 
-                    background: 'rgba(239, 68, 68, 0.1)', 
-                    color: '#ef4444', 
-                    border: '1px solid #ef4444', 
-                    borderRadius: '8px', 
-                    fontWeight: 600, 
-                    fontSize: '0.85rem', 
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                  className="hover-bright"
-                >
-                  <WifiOff size={16} />
-                  Desconectar
-                </button>
-              </div>
-
-              <div style={{ marginTop: '10px', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.01)', padding: '12px', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                <strong>Nota:</strong> Para conectar vía CLI, asegúrate de colocar el ejecutable standalone <code>FortiSSLVPNclient.exe</code> (o <code>openfortivpn.exe</code>) en el directorio del agente de ControlRemoto en la máquina remota.
               </div>
             </div>
           </div>
