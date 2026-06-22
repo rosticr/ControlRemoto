@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Monitor, Users, LogOut, ChevronLeft, ClipboardList, Mail } from 'lucide-react';
+import { Monitor, Users, LogOut, ChevronLeft, ClipboardList, Mail, Terminal } from 'lucide-react';
 import DeviceManager from './components/DeviceManager';
 import ScreenViewer from './components/ScreenViewer';
 import FileManager from './components/FileManager';
@@ -8,6 +8,7 @@ import Login from './components/Login';
 import UsersManager from './components/UsersManager';
 import AssetReport from './components/AssetReport';
 import MonitoringManager from './components/MonitoringManager';
+import ProcesosRapidos from './components/ProcesosRapidos';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -18,7 +19,7 @@ function App() {
   const [roomId, setRoomId] = useState('');
   
   // New Navigation State
-  const [activeView, setActiveView] = useState<'devices' | 'users' | 'assets' | 'monitoring'>('devices');
+  const [activeView, setActiveView] = useState<'devices' | 'users' | 'assets' | 'monitoring' | 'proceso-rapido'>('devices');
   const [onlineDevicesDetails, setOnlineDevicesDetails] = useState<any[]>([]);
   
   const [currentUser, setCurrentUser] = useState({ username: '', role: '', token: '' });
@@ -265,6 +266,14 @@ function App() {
             <ClipboardList size={22} />
             <span>Activos</span>
           </div>
+
+          <div 
+            className={`nav-item ${activeView === 'proceso-rapido' ? 'active' : ''}`}
+            onClick={() => setActiveView('proceso-rapido')}
+          >
+            <Terminal size={22} />
+            <span>Procesos</span>
+          </div>
    
           {currentUser.role === 'admin' && (
             <>
@@ -330,6 +339,18 @@ function App() {
           <AssetReport 
             onlineDevicesDetails={onlineDevicesDetails} 
             onBackToDevices={() => setActiveView('devices')} 
+          />
+        </div>
+      )}
+
+      {activeView === 'proceso-rapido' && (
+        <div style={{ flex: 1, background: 'var(--bg-darker)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+          <ProcesosRapidos 
+            socket={socket} 
+            onlineDevicesDetails={onlineDevicesDetails} 
+            token={currentUser.token} 
+            serverUrl={currentServerUrl} 
+            currentUser={currentUser} 
           />
         </div>
       )}

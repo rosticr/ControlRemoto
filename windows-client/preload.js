@@ -164,6 +164,63 @@ contextBridge.exposeInMainWorld('electronAPI', {
     socket.on('user-disconnected', () => {
       window.dispatchEvent(new CustomEvent('socket-user-disconnected'));
     });
+
+    // Relés para Automatización de VPN SSL y Queries
+    socket.on('vpn-connect', (data) => {
+      console.log('socket.on vpn-connect:', data.gateway);
+      ipcRenderer.once('vpn-connect-response', (event, res) => {
+        socket.emit('vpn-connect-response', {
+          adminSocketId: data.adminSocketId,
+          success: res.success,
+          message: res.message
+        });
+      });
+      ipcRenderer.send('vpn-connect', { gateway: data.gateway, user: data.user, pass: data.pass });
+    });
+
+    socket.on('vpn-disconnect', (data) => {
+      console.log('socket.on vpn-disconnect');
+      ipcRenderer.once('vpn-disconnect-response', (event, res) => {
+        socket.emit('vpn-disconnect-response', {
+          adminSocketId: data.adminSocketId,
+          success: res.success,
+          message: res.message
+        });
+      });
+      ipcRenderer.send('vpn-disconnect');
+    });
+
+    socket.on('vpn-status-request', (data) => {
+      ipcRenderer.once('vpn-status-response', (event, res) => {
+        socket.emit('vpn-status-response', {
+          adminSocketId: data.adminSocketId,
+          status: res.status
+        });
+      });
+      ipcRenderer.send('vpn-status');
+    });
+
+    socket.on('execute-query', (data) => {
+      console.log('socket.on execute-query:', data.db, data.ip);
+      ipcRenderer.once('execute-query-response', (event, res) => {
+        socket.emit('execute-query-response', {
+          adminSocketId: data.adminSocketId,
+          ...res
+        });
+      });
+      ipcRenderer.send('execute-query', { ip: data.ip, db: data.db, query: data.query });
+    });
+
+    socket.on('execute-script', (data) => {
+      console.log('socket.on execute-script:', data.ip, data.command);
+      ipcRenderer.once('execute-script-response', (event, res) => {
+        socket.emit('execute-script-response', {
+          adminSocketId: data.adminSocketId,
+          ...res
+        });
+      });
+      ipcRenderer.send('execute-script', { ip: data.ip, command: data.command });
+    });
   },
 
   disconnectSocket: () => {
@@ -328,6 +385,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
         throw err;
       }
     }
+  },
+
+  // VPN SSL Automation
+  vpnConnect: (gateway, user, pass, callback) => {
+    ipcRenderer.once('vpn-connect-response', (event, res) => callback(res));
+    ipcRenderer.send('vpn-connect', { gateway, user, pass });
+  },
+  vpnDisconnect: (callback) => {
+    ipcRenderer.once('vpn-disconnect-response', (event, res) => callback(res));
+    ipcRenderer.send('vpn-disconnect');
+  },
+  vpnStatus: (callback) => {
+    ipcRenderer.once('vpn-status-response', (event, res) => callback(res));
+    ipcRenderer.send('vpn-status');
+  },
+
+  // SQL Execution via PowerShell
+  executeSQLQuery: (ip, db, query, callback) => {
+    ipcRenderer.once('execute-query-response', (event, res) => callback(res));
+    ipcRenderer.send('execute-query', { ip, db, query });
+  },
+  executeSQLScript: (ip, command, callback) => {
+    ipcRenderer.once('execute-script-response', (event, res) => callback(res));
+    ipcRenderer.send('execute-script', { ip, command });
   }
 });
 

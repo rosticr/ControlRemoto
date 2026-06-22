@@ -441,9 +441,35 @@ app.post('/api/pinned-groups', authenticateToken, (req, res) => {
   if (!Array.isArray(pinned)) {
     return res.status(400).json({ error: 'La lista de grupos fijados debe ser un arreglo.' });
   }
-  savePinnedGroups(pinned);
-  res.json({ success: true, pinned });
 });
+
+const PROCESO_DB_FILE = path.join(PERSIST_DIR, 'proceso_database.json');
+
+// Endpoint para obtener el estado de Procesos Rapidos
+app.get('/api/proceso-state', authenticateToken, (req, res) => {
+  try {
+    if (fs.existsSync(PROCESO_DB_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PROCESO_DB_FILE, 'utf8'));
+      res.json({ success: true, data });
+    } else {
+      res.json({ success: true, data: {} });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Endpoint para guardar el estado de Procesos Rapidos
+app.post('/api/proceso-state', authenticateToken, (req, res) => {
+  try {
+    const data = req.body;
+    fs.writeFileSync(PROCESO_DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    res.json({ success: true, message: 'Estado guardado correctamente' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 
 // ==========================================
 // CONFIGURACIÓN Y MONITOREO POR CORREO (SMTP)
@@ -976,6 +1002,82 @@ io.on('connection', (socket) => {
       .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);
     io.to('dashboard-room').emit('online-devices', onlineIds);
     io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
+  });
+
+  // Relés para Automatización de VPN SSL y Queries
+  socket.on('vpn-connect', (data) => {
+    console.log(`[${ts()}] RELAY vpn-connect a sala=${data.roomId} desde=${socket.id}`);
+    socket.to(data.roomId).emit('vpn-connect', {
+      adminSocketId: socket.id,
+      gateway: data.gateway,
+      user: data.user,
+      pass: data.pass
+    });
+  });
+
+  socket.on('vpn-connect-response', (data) => {
+    console.log(`[${ts()}] RELAY vpn-connect-response a adminSocketId=${data.adminSocketId}`);
+    io.to(data.adminSocketId).emit('vpn-connect-response', {
+      success: data.success,
+      message: data.message
+    });
+  });
+
+  socket.on('vpn-disconnect', (data) => {
+    console.log(`[${ts()}] RELAY vpn-disconnect a sala=${data.roomId} desde=${socket.id}`);
+    socket.to(data.roomId).emit('vpn-disconnect', {
+      adminSocketId: socket.id
+    });
+  });
+
+  socket.on('vpn-disconnect-response', (data) => {
+    console.log(`[${ts()}] RELAY vpn-disconnect-response a adminSocketId=${data.adminSocketId}`);
+    io.to(data.adminSocketId).emit('vpn-disconnect-response', {
+      success: data.success,
+      message: data.message
+    });
+  });
+
+  socket.on('vpn-status-request', (data) => {
+    console.log(`[${ts()}] RELAY vpn-status-request a sala=${data.roomId} desde=${socket.id}`);
+    socket.to(data.roomId).emit('vpn-status-request', {
+      adminSocketId: socket.id
+    });
+  });
+
+  socket.on('vpn-status-response', (data) => {
+    io.to(data.adminSocketId).emit('vpn-status-response', {
+      status: data.status
+    });
+  });
+
+  socket.on('execute-query', (data) => {
+    console.log(`[${ts()}] RELAY execute-query a sala=${data.roomId} desde=${socket.id}`);
+    socket.to(data.roomId).emit('execute-query', {
+      adminSocketId: socket.id,
+      ip: data.ip,
+      db: data.db,
+      query: data.query
+    });
+  });
+
+  socket.on('execute-query-response', (data) => {
+    console.log(`[${ts()}] RELAY execute-query-response a adminSocketId=${data.adminSocketId} success=${data.success}`);
+    io.to(data.adminSocketId).emit('execute-query-response', data);
+  });
+
+  socket.on('execute-script', (data) => {
+    console.log(`[${ts()}] RELAY execute-script a sala=${data.roomId} desde=${socket.id}`);
+    socket.to(data.roomId).emit('execute-script', {
+      adminSocketId: socket.id,
+      ip: data.ip,
+      command: data.command
+    });
+  });
+
+  socket.on('execute-script-response', (data) => {
+    console.log(`[${ts()}] RELAY execute-script-response a adminSocketId=${data.adminSocketId} success=${data.success}`);
+    io.to(data.adminSocketId).emit('execute-script-response', data);
   });
 
   socket.on('error', (err) => {

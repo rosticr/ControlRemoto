@@ -179,6 +179,14 @@ function createTray() {
       click: () => {
         app.isQuiting = true;
         if (inputSimulator) inputSimulator.kill();
+        if (vpnProcess) {
+          try { vpnProcess.kill(); } catch (e) {}
+        }
+        const vpnExe = findVpnExecutable();
+        if (vpnExe && vpnExe.toLowerCase().includes('fortisslvpnclient')) {
+          const { execSync } = require('child_process');
+          try { execSync(`"${vpnExe}" disconnect`); } catch(e) {}
+        }
         app.quit();
       } 
     }
@@ -267,4 +275,239 @@ ipcMain.on('window-hide', () => {
 ipcMain.on('window-close', () => {
   // Minimize to tray instead of closing
   if (mainWindow) mainWindow.hide();
+});
+
+let vpnProcess = null;
+let vpnStatusStr = 'disconnected';
+
+function findVpnExecutable() {
+  const candidates = [
+    path.join(__dirname, 'FortiSSLVPNclient.exe'),
+    path.join(__dirname, 'openfortivpn.exe'),
+    'C:\\Program Files\\Fortinet\\FortiClient\\FortiSSLVPNclient.exe',
+    'C:\\Program Files (x86)\\Fortinet\\FortiClient\\FortiSSLVPNclient.exe',
+    'C:\\Procesos Rapidos Front Rest\\FortiSSLVPNclient.exe',
+    'C:\\Procesos Rapidos Front Rest\\openfortivpn.exe'
+  ];
+  
+  let appDir = __dirname;
+  if (appDir.includes('app.asar')) {
+    candidates.unshift(path.join(appDir.replace('app.asar', 'app.asar.unpacked'), 'FortiSSLVPNclient.exe'));
+    candidates.unshift(path.join(appDir.replace('app.asar', 'app.asar.unpacked'), 'openfortivpn.exe'));
+  }
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      return c;
+    }
+  }
+  return null;
+}
+
+// VPN Connect IPC Handler
+ipcMain.on('vpn-connect', (event, { gateway, user, pass }) => {
+  if (vpnProcess && !vpnProcess.killed) {
+    event.reply('vpn-connect-response', { success: true, message: 'VPN ya está conectada.' });
+    return;
+  }
+
+  const vpnExe = findVpnExecutable();
+  if (!vpnExe) {
+    event.reply('vpn-connect-response', { 
+      success: false, 
+      message: 'No se encontró ningún cliente VPN compatible (FortiSSLVPNclient.exe o openfortivpn.exe). Por favor, colócalo en el directorio de la aplicación.' 
+    });
+    return;
+  }
+
+  vpnStatusStr = 'connecting';
+  const isForti = vpnExe.toLowerCase().includes('fortisslvpnclient');
+  
+  let args = [];
+  if (isForti) {
+    args = ['connect', '-h', gateway, '-u', `${user}:${pass}`, '-i', '-q'];
+  } else {
+    args = [gateway, '-u', user, '-p', pass, '--trusted-cert', 'allow-all'];
+  }
+
+  console.log(`Iniciando túnel VPN con: ${vpnExe}`);
+
+  try {
+    vpnProcess = spawn(vpnExe, args, { stdio: 'pipe' });
+    vpnStatusStr = 'connected';
+    
+    vpnProcess.stdout.on('data', (data) => {
+      console.log(`[VPN STDOUT]: ${data.toString()}`);
+    });
+
+    vpnProcess.stderr.on('data', (data) => {
+      console.error(`[VPN STDERR]: ${data.toString()}`);
+    });
+
+    vpnProcess.on('close', (code) => {
+      console.log(`VPN process closed with code ${code}`);
+      vpnProcess = null;
+      vpnStatusStr = 'disconnected';
+    });
+
+    event.reply('vpn-connect-response', { success: true, message: 'Túnel VPN iniciado correctamente.' });
+  } catch (err) {
+    vpnStatusStr = 'disconnected';
+    event.reply('vpn-connect-response', { success: false, message: `Error al iniciar VPN: ${err.message}` });
+  }
+});
+
+// VPN Disconnect IPC Handler
+ipcMain.on('vpn-disconnect', (event) => {
+  if (vpnProcess) {
+    try {
+      vpnProcess.kill();
+      const vpnExe = findVpnExecutable();
+      if (vpnExe && vpnExe.toLowerCase().includes('fortisslvpnclient')) {
+        const { exec } = require('child_process');
+        exec(`"${vpnExe}" disconnect`, () => {});
+      }
+      vpnProcess = null;
+      vpnStatusStr = 'disconnected';
+      event.reply('vpn-disconnect-response', { success: true, message: 'VPN desconectada.' });
+    } catch (err) {
+      event.reply('vpn-disconnect-response', { success: false, message: `Error al desconectar: ${err.message}` });
+    }
+  } else {
+    const vpnExe = findVpnExecutable();
+    if (vpnExe && vpnExe.toLowerCase().includes('fortisslvpnclient')) {
+      const { exec } = require('child_process');
+      exec(`"${vpnExe}" disconnect`, () => {});
+    }
+    vpnStatusStr = 'disconnected';
+    event.reply('vpn-disconnect-response', { success: true, message: 'VPN ya estaba desconectada.' });
+  }
+});
+
+// VPN Status IPC Handler
+ipcMain.on('vpn-status', (event) => {
+  event.reply('vpn-status-response', { status: vpnStatusStr });
+});
+
+// Helper to run PowerShell scripts
+const os = require('os');
+function runPowerShellScript(scriptText, callback) {
+  const tempDir = os.tmpdir();
+  const tempFile = path.join(tempDir, `rosti_temp_${Math.random().toString(36).substring(2, 8)}.ps1`);
+  
+  try {
+    fs.writeFileSync(tempFile, scriptText, 'utf8');
+    exec(`powershell -ExecutionPolicy Bypass -File "${tempFile}"`, (err, stdout, stderr) => {
+      try { fs.unlinkSync(tempFile); } catch(e) {}
+      
+      if (err) {
+        callback({ success: false, message: err.message + '\n' + stderr });
+      } else {
+        try {
+          const res = JSON.parse(stdout);
+          callback(res);
+        } catch (parseErr) {
+          callback({ success: false, message: 'Error al parsear JSON devuelto por PowerShell: ' + stdout });
+        }
+      }
+    });
+  } catch (writeErr) {
+    callback({ success: false, message: 'Error al escribir script temporal: ' + writeErr.message });
+  }
+}
+
+// SQL Query Execution IPC Handler
+ipcMain.on('execute-query', (event, { ip, db, query }) => {
+  const psScript = `
+$connString = "Server=${ip};Database=${db};User Id=sa;Password=masterkey;Connect Timeout=5;TrustServerCertificate=true;"
+$conn = New-Object System.Data.SqlClient.SqlConnection($connString)
+try {
+    $conn.Open()
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = @'
+${query}
+'@
+    if ($cmd.CommandText.Trim().ToUpper().StartsWith("SELECT")) {
+        $adapter = New-Object System.Data.SqlClient.SqlDataAdapter($cmd)
+        $table = New-Object System.Data.DataTable
+        $adapter.Fill($table) | Out-Null
+        $rows = @()
+        foreach ($row in $table.Rows) {
+            $obj = [ordered]@{ }
+            foreach ($col in $table.Columns) {
+                $obj.Add($col.ColumnName, $row[$col.ColumnName])
+            }
+            $rows += $obj
+        }
+        $result = @{ success = $true; data = $rows }
+    } else {
+        $affected = $cmd.ExecuteNonQuery()
+        $result = @{ success = $true; message = "Operación completada exitosamente. Filas afectadas: $affected" }
+    }
+} catch {
+    $result = @{ success = $false; message = $_.Exception.Message }
+} finally {
+    if ($conn.State -eq [System.Data.ConnectionState]::Open) {
+        $conn.Close()
+    }
+}
+$result | ConvertTo-Json -Depth 5
+  `;
+
+  runPowerShellScript(psScript, (res) => {
+    event.reply('execute-query-response', res);
+  });
+});
+
+// SQL xp_cmdshell Script Execution IPC Handler
+ipcMain.on('execute-script', (event, { ip, command }) => {
+  const psScript = `
+$connString = "Server=${ip};Database=master;User Id=sa;Password=masterkey;Connect Timeout=5;TrustServerCertificate=true;"
+$conn = New-Object System.Data.SqlClient.SqlConnection($connString)
+try {
+    $conn.Open()
+    $cmd = $conn.CreateCommand()
+    
+    # Habilitar xp_cmdshell
+    $cmd.CommandText = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;"
+    $cmd.ExecuteNonQuery() | Out-Null
+    
+    # Ejecutar el comando
+    $command = @'
+${command}
+'@
+    $escapedCmd = $command.Replace("'", "''")
+    $cmd.CommandText = "EXEC xp_cmdshell '$escapedCmd';"
+    $adapter = New-Object System.Data.SqlClient.SqlDataAdapter($cmd)
+    $table = New-Object System.Data.DataTable
+    $adapter.Fill($table) | Out-Null
+    
+    $output = @()
+    foreach ($row in $table.Rows) {
+        if ($row[0] -ne [DBNull]::Value) {
+            $output += $row[0].ToString()
+        }
+    }
+    $outputStr = $output -join "\`n"
+    
+    # Deshabilitar xp_cmdshell
+    try {
+        $cmd.CommandText = "EXEC sp_configure 'xp_cmdshell', 0; RECONFIGURE; EXEC sp_configure 'show advanced options', 0; RECONFIGURE;"
+        $cmd.ExecuteNonQuery() | Out-Null
+    } catch {}
+    
+    $result = @{ success = $true; output = $outputStr }
+} catch {
+    $result = @{ success = $false; message = $_.Exception.Message }
+} finally {
+    if ($conn.State -eq [System.Data.ConnectionState]::Open) {
+        $conn.Close()
+    }
+}
+$result | ConvertTo-Json
+  `;
+
+  runPowerShellScript(psScript, (res) => {
+    event.reply('execute-script-response', res);
+  });
 });
