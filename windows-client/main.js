@@ -467,31 +467,49 @@ ipcMain.on('execute-script', (event, { ip, command }) => {
     const { exec } = require('child_process');
     const fs = require('fs');
 
-    const desktopPath = path.join(os.homedir(), 'Desktop');
-    const batPath = path.join(desktopPath, 'integracion.bat');
+    const batContent = `@echo off
+set ORIGEN=C:\\Program Files\\Integral\\Integral_ICG\\Respaldos_Configuracion\\1,84\\IntegradorServiciosICG.exe.config
+set DESTINO=C:\\Program Files\\Integral\\Integral_ICG\\IntegradorServiciosICG.exe.config
 
-    if (!fs.existsSync(batPath)) {
+:: Copiar el archivo con la opcion de sobrescribir
+copy /Y "%ORIGEN%" "%DESTINO%"
+
+:: Verificar si la operacion fue exitosa
+if %errorlevel%==0 (
+    echo Archivo copiado exitosamente.
+) else (
+    echo Error al copiar el archivo.
+)
+`;
+
+    const tempDir = os.tmpdir();
+    const tempBatPath = path.join(tempDir, 'integracion_temp.bat');
+
+    try {
+      fs.writeFileSync(tempBatPath, batContent, 'utf8');
+      
+      exec(`cmd.exe /c "${tempBatPath}"`, (error, stdout, stderr) => {
+        try { fs.unlinkSync(tempBatPath); } catch(e) {}
+        
+        if (error) {
+          event.reply('execute-script-response', {
+            success: false,
+            output: stdout,
+            message: `Error al ejecutar integracion.bat: ${error.message}\n${stderr}`
+          });
+        } else {
+          event.reply('execute-script-response', {
+            success: true,
+            output: stdout || 'Ejecutado correctamente (sin salida de consola).'
+          });
+        }
+      });
+    } catch (err) {
       event.reply('execute-script-response', {
         success: false,
-        message: `El archivo integracion.bat no existe en el Escritorio. Ruta buscada: ${batPath}`
+        message: `Error al escribir el archivo bat temporal: ${err.message}`
       });
-      return;
     }
-
-    exec(`cmd.exe /c "${batPath}"`, (error, stdout, stderr) => {
-      if (error) {
-        event.reply('execute-script-response', {
-          success: false,
-          output: stdout,
-          message: error.message + '\n' + stderr
-        });
-      } else {
-        event.reply('execute-script-response', {
-          success: true,
-          output: stdout || 'Ejecutado correctamente (sin salida de consola).'
-        });
-      }
-    });
     return;
   }
 
