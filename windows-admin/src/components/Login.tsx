@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Flame } from 'lucide-react';
 
 interface LoginProps {
@@ -9,9 +9,20 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('https://acceso.rosti.cr');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
-
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const remember = localStorage.getItem('cr_remember_me') === 'true';
+    if (remember) {
+      setRememberMe(true);
+      const savedUser = localStorage.getItem('cr_saved_username') || '';
+      const savedPass = localStorage.getItem('cr_saved_password') || '';
+      setUsername(savedUser);
+      setPassword(savedPass);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +39,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       
       const data = await response.json();
       if (data.success) {
+        if (rememberMe) {
+          localStorage.setItem('cr_remember_me', 'true');
+          localStorage.setItem('cr_saved_username', username);
+          localStorage.setItem('cr_saved_password', password);
+        } else {
+          localStorage.removeItem('cr_remember_me');
+          localStorage.removeItem('cr_saved_username');
+          localStorage.removeItem('cr_saved_password');
+        }
         onLoginSuccess(url, data.username, data.role, data.token);
       } else {
         setError(data.error || 'Credenciales incorrectas. Acceso denegado.');
@@ -85,6 +105,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <option value="http://127.0.0.1:3000">💻 Servidor Local (LAN)</option>
               <option value="https://acceso.rosti.cr">☁️ Servidor Remoto (Nube)</option>
             </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', cursor: 'pointer', userSelect: 'none' }} onClick={() => setRememberMe(!rememberMe)}>
+            <input 
+              type="checkbox" 
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+            />
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Recordar credenciales</span>
           </div>
 
           {error && <div className="error-message">{error}</div>}
