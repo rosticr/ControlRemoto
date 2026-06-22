@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, Menu, Tray, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 
 // Disable hardware acceleration to prevent desktop capture freezes/stalls on GPU context switches (e.g. opening new windows) on Windows
 app.disableHardwareAcceleration();

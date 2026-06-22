@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { 
   Play, Terminal, Settings, Database, Trash2, Key, CheckCircle2, 
@@ -81,6 +81,7 @@ export default function ProcesosRapidos({
     'btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-subtotal'
   ]);
 
+  const queryTimeoutRef = useRef<any>(null);
   const isAdmin = currentUser.role === 'admin';
 
   // --- Predefined Queries List ---
@@ -264,6 +265,10 @@ export default function ProcesosRapidos({
     });
 
     socket.on('execute-query-response', (res: any) => {
+      if (queryTimeoutRef.current) {
+        clearTimeout(queryTimeoutRef.current);
+        queryTimeoutRef.current = null;
+      }
       setQueryExecuting(false);
       if (res.success) {
         if (res.data) {
@@ -449,6 +454,15 @@ export default function ProcesosRapidos({
     setQueryExecuting(true);
     setResultsMessage('Enviando consulta SQL al agente...');
     setResultsData(null);
+
+    // Timeout de 15 segundos
+    if (queryTimeoutRef.current) clearTimeout(queryTimeoutRef.current);
+    queryTimeoutRef.current = setTimeout(() => {
+      setQueryExecuting(false);
+      setResultsData(null);
+      setResultsMessage('Error: Tiempo de espera agotado (15s). El agente no respondió a la consulta SQL. Asegúrate de reiniciar el RostiWindowsClient local en la máquina branch y verificar que esté ejecutando la última versión.');
+      queryTimeoutRef.current = null;
+    }, 15000);
 
     const activeLoc = locations.find(l => l.ip === selectedLocationIp);
     const dbName = activeLoc ? activeLoc.db : 'dbfrest';
