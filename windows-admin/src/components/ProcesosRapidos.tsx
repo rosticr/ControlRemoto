@@ -140,6 +140,7 @@ export default function ProcesosRapidos({
     {
       id: 'btn-q-limpiar-cliente-uber',
       name: 'Limpiar Cliente Uber',
+      description: 'Resetea teléfonos, nombres, alias y observaciones de clientes Uber (1000, 2000, 5000).',
       query: `update CLIENTES set TELEFONO1='60010101' where CODCLIENTE=1000;
 update CLIENTES set TELEFONO1='70010101' where CODCLIENTE=2000;
 update CLIENTES set TELEFONO1='80010101' where CODCLIENTE=5000;
@@ -825,7 +826,19 @@ update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=5000;`,
                       <Database size={20} style={{ color: q.color, marginRight: '12px', marginTop: '2px', flexShrink: 0 }} />
                       <div>
                         <div style={{ fontWeight: 600, color: 'white', fontSize: '0.9rem', marginBottom: '4px' }}>{q.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{q.query}</div>
+                        <div style={{ 
+                          fontSize: '0.75rem', 
+                          color: 'var(--text-muted)', 
+                          fontFamily: 'monospace', 
+                          wordBreak: 'break-all',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {q.description || q.query}
+                        </div>
                       </div>
                     </button>
                   ))}
