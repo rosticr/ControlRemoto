@@ -154,6 +154,26 @@ update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=2000;
 update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=5000;`,
       color: '#ec4899',
       prompts: []
+    },
+    {
+      id: 'btn-q-enviar-factura-misma-num',
+      name: 'Enviar Factura Misma Numeración',
+      query: "exec [Rosti_Genera_FE_TXT] '{0}', {1}",
+      color: '#a855f7',
+      prompts: [
+        { text: 'Ingrese la SERIE (ej. T004):', type: 'text' },
+        { text: 'Ingrese el NÚMERO:', type: 'number' }
+      ]
+    },
+    {
+      id: 'btn-q-enviar-factura-otra-num',
+      name: 'Enviar Factura Otra Numeración',
+      query: "exec [Rosti_Genera_FE_TXT] '{0}', {1}, 1",
+      color: '#14b8a6',
+      prompts: [
+        { text: 'Ingrese la SERIE (ej. T001):', type: 'text' },
+        { text: 'Ingrese el NÚMERO:', type: 'number' }
+      ]
     }
   ];
 
@@ -223,10 +243,10 @@ update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=5000;`,
           { id: '59881630.2388', name: 'Alajuela', ip: '10.1.3.2', db: 'dbfrest', deviceId: 'win-1C3E5B' }
         ];
         const defaultUsers = [
-          { id: '1', username: 'admin', password: 'R0st1p017', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber'] },
-          { id: '2', username: 'asolano', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber'] },
-          { id: '3', username: 'javalos', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber'] },
-          { id: '4', username: 'malfaro', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber'] }
+          { id: '1', username: 'admin', password: 'R0st1p017', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber', 'btn-q-enviar-factura-misma-num', 'btn-q-enviar-factura-otra-num'] },
+          { id: '2', username: 'asolano', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber', 'btn-q-enviar-factura-misma-num', 'btn-q-enviar-factura-otra-num'] },
+          { id: '3', username: 'javalos', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber', 'btn-q-enviar-factura-misma-num', 'btn-q-enviar-factura-otra-num'] },
+          { id: '4', username: 'malfaro', password: 'Rosti2026*', role: 'admin', allLocations: true, allowedLocations: [], allowedQueries: ['btn-q-mesa-bloqueada', 'btn-q-actividad', 'btn-q-violacion', 'btn-q-ventas', 'btn-q-eliminar-mesa', 'btn-q-subtotal', 'btn-q-limpiar-cliente-uber', 'btn-q-enviar-factura-misma-num', 'btn-q-enviar-factura-otra-num'] }
         ];
         setLocations(defaultLocs);
         setUsers(defaultUsers);
