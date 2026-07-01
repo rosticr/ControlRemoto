@@ -24,7 +24,7 @@ class AdminConsoleActivity : Activity() {
         setContentView(webView)
 
         // Get the target admin console URL
-        val url = intent.getStringExtra("URL") ?: "https://acceso.rosti.cr/admin"
+        val url = intent.getStringExtra("URL") ?: "https://kpisrosti.com:86/admin"
 
         // Configure WebView settings
         val settings = webView.settings
