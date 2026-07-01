@@ -8,7 +8,7 @@ interface LoginProps {
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [serverUrl, setServerUrl] = useState('https://acceso.rosti.cr');
+  const [serverUrl, setServerUrl] = useState('https://kpisrosti.com:86');
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -103,7 +103,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', marginBottom: '8px' }}
             >
               <option value="http://127.0.0.1:3000">💻 Servidor Local (LAN)</option>
-              <option value="https://acceso.rosti.cr">☁️ Servidor Remoto (Nube)</option>
+              <option value="https://kpisrosti.com:86">☁️ Servidor Remoto (Nube)</option>
             </select>
           </div>
 

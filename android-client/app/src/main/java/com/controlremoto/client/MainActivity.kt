@@ -194,7 +194,7 @@ class MainActivity : Activity() {
             }
         }
         btnAdmin.setOnClickListener {
-            val serverUrl = prefs.getString("server_url", "https://acceso.rosti.cr")
+            val serverUrl = prefs.getString("server_url", "https://kpisrosti.com:86")
             val intent = Intent(this, AdminConsoleActivity::class.java).apply {
                 putExtra("URL", "$serverUrl/admin")
             }
@@ -212,7 +212,7 @@ class MainActivity : Activity() {
                 .setSingleChoiceItems(options, checkedItem) { dialog, which ->
                     if (which == 0) {
                         prefs.edit().putBoolean("use_remote", true).apply()
-                        prefs.edit().putString("server_url", "https://acceso.rosti.cr").apply()
+                        prefs.edit().putString("server_url", "https://kpisrosti.com:86").apply()
                         Toast.makeText(this, "Modo Nube activado. Reinicia la transmisión.", Toast.LENGTH_LONG).show()
                     } else {
                         prefs.edit().putBoolean("use_remote", false).apply()

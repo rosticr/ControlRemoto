@@ -18,7 +18,7 @@ const configPath = path.join(app.getPath('userData'), 'config.json');
 
 // Default Configuration
 let config = {
-  serverUrl: 'https://acceso.rosti.cr',
+  serverUrl: 'https://kpisrosti.com:86',
   deviceId: 'win-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
   deviceName: require('os').hostname(),
   group: 'Sin Grupo',
@@ -35,7 +35,7 @@ function loadConfig() {
       
       // Force migration to remote cloud URL if it is empty, local, or contains port 3000
       if (!config.serverUrl || config.serverUrl.includes('localhost') || config.serverUrl.includes('127.0.0.1') || config.serverUrl.includes(':3000')) {
-        config.serverUrl = 'https://acceso.rosti.cr';
+        config.serverUrl = 'https://kpisrosti.com:86';
         saveConfig(config);
       }
     } catch (e) {
