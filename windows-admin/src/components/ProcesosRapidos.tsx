@@ -568,6 +568,50 @@ update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=5000;`,
     });
   };
 
+  // --- Deshabilitar bloqueo de Windows (evita el Escritorio Seguro) ---
+  // Corre via execute-script -> xp_cmdshell (como cuenta de SQL / SYSTEM),
+  // por eso puede escribir en HKLM a nivel maquina. DisableLockWorkstation=1
+  // impide TODO bloqueo, incluido el que hace TeamViewer al cerrar sesion.
+  const handleDisableLock = () => {
+    const executorDevice = getTargetExecutorDevice();
+    if (!socket || !executorDevice) {
+      if (connectionMode === 'direct') {
+        const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+        const locName = activeLoc ? activeLoc.name : 'el local seleccionado';
+        return alert(`No se encontró ningún equipo online en el local "${locName}". Asegúrate de que el equipo del local está encendido y tiene instalada la aplicación.`);
+      } else {
+        return alert('Selecciona un dispositivo puente online.');
+      }
+    }
+    if (!selectedLocationIp) return alert('Selecciona el local activo.');
+
+    if (!window.confirm('Se deshabilitará el bloqueo de pantalla de este equipo (a nivel máquina) para que el control remoto no pierda la vista al bloquearse. ¿Continuar?')) return;
+
+    // Solo comillas dobles: la cadena pasa por xp_cmdshell (que duplica comillas simples).
+    const cmdToRun = 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v DisableLockWorkstation /t REG_DWORD /d 1 /f & reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v InactivityTimeoutSecs /t REG_DWORD /d 0 /f & reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop" /v ScreenSaveActive /t REG_SZ /d 0 /f & reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop" /v ScreenSaverIsSecure /t REG_SZ /d 0 /f';
+
+    setScriptExecuting(true);
+    setScriptStatus('Ejecutando...');
+    setScriptConsoleOutput('C:\\Procesos> Aplicando configuración anti-bloqueo (HKLM)...');
+
+    const activeLoc = locations.find(l => l.ip === selectedLocationIp);
+    const newLog = {
+      date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      username: currentUser.username,
+      local: activeLoc ? activeLoc.name : selectedLocationIp,
+      query: `DESHABILITAR BLOQUEO: ${cmdToRun}`
+    };
+    const updatedLogs = [newLog, ...logs].slice(0, 500);
+    setLogs(updatedLogs);
+    saveState(locations, users, updatedLogs);
+
+    socket.emit('execute-script', {
+      roomId: executorDevice,
+      ip: selectedLocationIp,
+      command: cmdToRun
+    });
+  };
+
   // --- Mantenimiento Locales ---
   const handleSaveLocal = () => {
     if (!newLocalName || !newLocalIp) return alert('Faltan datos del local.');
@@ -951,6 +995,51 @@ update CLIENTES set OBSERVACIONES='Cliente Uber' where CODCLIENTE=5000;`,
                 </button>
               </div>
             </div>
+
+            {/* Card: Deshabilitar Bloqueo de Windows (solo admins) */}
+            {isAdmin && (
+              <div style={{ background: 'var(--bg-panel)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <ShieldCheck size={20} /> Deshabilitar Bloqueo de Windows
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    Impide que el equipo del local llegue a la pantalla de bloqueo/login (el "Escritorio Seguro" de Windows que el control remoto no puede ver). Neutraliza también el bloqueo que hace TeamViewer al cerrar sesión.
+                  </p>
+                  <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#a855f7', fontSize: '0.85rem' }}>
+                    <ShieldAlert size={18} style={{ flexShrink: 0 }} />
+                    <span>Aplica a nivel máquina (HKLM) vía SQL Server. Efecto inmediato, sin reinicio. Si el equipo ya está bloqueado ahora, hay que entrarle una vez; de ahí en adelante no se vuelve a bloquear.</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', marginTop: '8px' }}>
+                  <button
+                    onClick={handleDisableLock}
+                    disabled={scriptExecuting}
+                    style={{
+                      padding: '12px 24px',
+                      background: '#8b5cf6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)',
+                      transition: 'all 0.2s'
+                    }}
+                    className="hover-bright"
+                  >
+                    {scriptExecuting ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
+                    Deshabilitar Bloqueo en este Local
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Green-on-black Console */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', minHeight: '300px' }}>
