@@ -907,3 +907,70 @@ button:disabled {
   90%  { opacity: 0.9; transform: scale(0.4); }
   100% { opacity: 0; transform: scale(0.35); }
 }
+
+/* La pulsación larga nativa del WebView (selección de texto/callout) cancelaba
+   el gesto antes de que llegara nuestro clic derecho. */
+.screen-viewer,
+.screen-viewer video {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 768px) {
+  /* Contenedor en columna: teclas arriba, dos filas fijas de botones abajo.
+     Nada se desplaza en horizontal, así que ningún botón queda fuera de pantalla. */
+  .mobile-controls-wrap {
+    display: flex !important;
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 16px);
+    z-index: 999;
+  }
+
+  .mobile-controls-wrap .mobile-controls-bar,
+  .mobile-controls-wrap .mobile-keys-bar {
+    position: static;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: 100%;
+    overflow: visible;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px !important;
+    padding: 8px 12px;
+  }
+
+  .mobile-controls-wrap .mobile-control-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    position: relative;
+  }
+
+  /* El clic derecho se marca con etiqueta: es el botón que más cuesta encontrar */
+  .mobile-controls-wrap .right-click-btn .btn-tag {
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
+  }
+
+  .mobile-controls-wrap .mobile-control-btn.danger {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+  }
+}

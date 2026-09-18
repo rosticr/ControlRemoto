@@ -232,6 +232,17 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     lastTapRef.current = null;
   };
 
+  // Un único sitio donde nace el clic derecho táctil, para que los tres caminos
+  // (temporizador, contextmenu del WebView y pointercancel) no lo dupliquen.
+  const fireRightClick = () => {
+    const p = padRef.current;
+    if (p.didLongPress) return;
+    clearPadTimers();
+    p.didLongPress = true;
+    clickAtCursor(true);
+    vibrate(25);
+  };
+
   const beginDrag = () => {
     const p = padRef.current;
     if (!p.active || p.dragging) return;
@@ -292,9 +303,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         p.longPressTimer = null;
         setPressing(false);
         if (!p.active || p.dragging) return;
-        p.didLongPress = true;
-        clickAtCursor(true);
-        vibrate(25);
+        fireRightClick();
       }, LONG_PRESS_MS);
       return;
     }
@@ -801,9 +810,25 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             onPointerDown={(e) => handlePointerEvent(e, 'down')}
             onPointerUp={(e) => handlePointerEvent(e, 'up')}
             onPointerMove={(e) => handlePointerEvent(e, 'move')}
-            onPointerCancel={() => cancelPadGesture()}
+            onPointerCancel={() => {
+              // Si el WebView nos arrebata el toque en plena pulsación larga,
+              // la damos por buena en vez de perderla.
+              const p = padRef.current;
+              if (p.active && !p.moved && !p.dragging && !p.didLongPress && p.longPressTimer) {
+                fireRightClick();
+              }
+              cancelPadGesture();
+            }}
             onWheel={handleWheelEvent}
-            onContextMenu={(e) => e.preventDefault()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              // Android dispara contextmenu en su propia pulsación larga. Usar su
+              // detección es más fiable que nuestro temporizador dentro del WebView.
+              const p = padRef.current;
+              if (p.active && !p.dragging && !p.didLongPress) {
+                fireRightClick();
+              }
+            }}
           />
 
           {/* Cursor dibujado: sin él el modo touchpad sería a ciegas */}
@@ -835,23 +860,28 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             autoCapitalize="off"
             spellCheck="false"
             style={{
+              // 1x1 px, sin eventos y fuera de la zona de botones: antes ocupaba
+              // 30x30 px sobre la esquina inferior derecha y se comía los toques
+              // de la barra (por eso la X no respondía).
               position: 'absolute',
-              bottom: '12px',
-              right: '12px',
-              width: '30px',
-              height: '30px',
+              top: '50%',
+              left: '0px',
+              width: '1px',
+              height: '1px',
               opacity: 0.01,
               border: 'none',
+              padding: 0,
               background: 'transparent',
               color: 'transparent',
-              pointerEvents: 'auto',
-              zIndex: 1000
+              pointerEvents: 'none',
+              zIndex: 1
             }}
           />
 
-          {/* Barra de teclas especiales (Esc, Tab, flechas...) */}
+          {/* Controles táctiles: teclas especiales + dos filas fijas, sin scroll */}
+          <div className="mobile-controls-wrap" style={{ display: 'none' }} {...stopPropagationProps}>
           {showKeysBar && (
-            <div className="mobile-keys-bar" {...stopPropagationProps}>
+            <div className="mobile-keys-bar">
               <button className="mobile-key-btn wide" onClick={() => sendKey('Escape')} title="Escape">Esc</button>
               <button className="mobile-key-btn wide" onClick={() => sendKey('Tab')} title="Tabulador">Tab</button>
               <button className="mobile-key-btn wide" onClick={() => sendKey('Backspace')} title="Retroceso">⌫</button>
@@ -874,22 +904,8 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             </div>
           )}
 
-          {/* Mobile Floating Overlay Controls (visible only on mobile) */}
-          <div className="mobile-controls-bar" style={{ display: 'none' }} {...stopPropagationProps}>
-            <button
-              className="mobile-control-btn"
-              onClick={triggerMobileKeyboard}
-              title="Teclado"
-            >
-              <Keyboard size={20} />
-            </button>
-            <button
-              className={`mobile-control-btn ${showKeysBar ? 'active' : ''}`}
-              onClick={() => setShowKeysBar(v => !v)}
-              title="Teclas especiales"
-            >
-              <Command size={20} />
-            </button>
+          {/* Fila 1: ratón */}
+          <div className="mobile-controls-bar">
             <button
               className={`mobile-control-btn ${pointerMode === 'touchpad' ? 'active' : ''}`}
               onClick={togglePointerMode}
@@ -898,7 +914,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               {pointerMode === 'touchpad' ? <Hand size={20} /> : <Crosshair size={20} />}
             </button>
             <button
-              className={`mobile-control-btn ${isRightClickMode ? 'active' : ''}`}
+              className={`mobile-control-btn right-click-btn ${isRightClickMode ? 'active' : ''}`}
               onClick={() => {
                 // En touchpad el cursor ya está donde el usuario quiere: clic derecho al momento.
                 if (pointerMode === 'touchpad') clickAtCursor(true);
@@ -907,6 +923,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               title={pointerMode === 'touchpad' ? 'Clic derecho aquí' : 'Clic derecho (en el siguiente toque)'}
             >
               <MousePointer size={20} />
+              <span className="btn-tag">der</span>
             </button>
             <button
               className="mobile-control-btn"
@@ -929,6 +946,24 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             >
               <ChevronDown size={20} />
             </button>
+          </div>
+
+          {/* Fila 2: teclado y sesión */}
+          <div className="mobile-controls-bar">
+            <button
+              className="mobile-control-btn"
+              onClick={triggerMobileKeyboard}
+              title="Teclado"
+            >
+              <Keyboard size={20} />
+            </button>
+            <button
+              className={`mobile-control-btn ${showKeysBar ? 'active' : ''}`}
+              onClick={() => setShowKeysBar(v => !v)}
+              title="Teclas especiales"
+            >
+              <Command size={20} />
+            </button>
             <button
               className="mobile-control-btn"
               onClick={handleMobilePaste}
@@ -938,14 +973,14 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             </button>
             {onDisconnect && (
               <button
-                className="mobile-control-btn"
+                className="mobile-control-btn danger"
                 onClick={onDisconnect}
-                style={{ color: '#ef4444' }}
                 title="Desconectar"
               >
                 <XCircle size={20} />
               </button>
             )}
+          </div>
           </div>
 
           {platform === 'windows' && (
