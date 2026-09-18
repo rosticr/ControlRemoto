@@ -786,3 +786,98 @@ button:disabled {
     color: black;
   }
 }
+
+/* ===== Control táctil: cursor del modo touchpad y barra de teclas ===== */
+
+.remote-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  margin-left: -3px;
+  margin-top: -2px;
+  pointer-events: none;
+  z-index: 900;
+  will-change: transform;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+@media (max-width: 768px) {
+  /* Con más botones, la barra se desplaza en horizontal en vez de desbordarse */
+  .mobile-controls-bar {
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 8px !important;
+    padding: 8px 12px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-controls-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-control-btn {
+    flex: 0 0 auto;
+  }
+
+  .dbl-click-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .mobile-keys-bar {
+    display: flex;
+    position: absolute;
+    bottom: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    background: rgba(13, 19, 35, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 6px 12px;
+    gap: 8px;
+    align-items: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-keys-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-key-btn {
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    height: 36px;
+    min-width: 36px;
+    padding: 0 8px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.2s;
+  }
+
+  .mobile-key-btn.wide {
+    min-width: 46px;
+  }
+
+  .mobile-key-btn:active {
+    background: var(--primary);
+  }
+}
