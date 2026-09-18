@@ -1180,41 +1180,6 @@ button:disabled {
   }
 }
 
-/* Boton unico cuando los controles estan plegados */
-.mobile-controls-toggle {
-  display: none;
-  position: absolute;
-  top: 62px;
-  left: 8px;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(13, 19, 35, 0.82);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  color: #fff;
-  cursor: pointer;
-  outline: none;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-  z-index: 999;
-}
-
-@media (max-width: 768px), (max-height: 560px) {
-  .mobile-controls-toggle {
-    display: flex;
-  }
-}
-
-@media (max-height: 560px) {
-  .mobile-controls-toggle {
-    top: auto;
-    bottom: 8px;
-    left: 8px;
-  }
-}
-
 /* El panel de detalles reservaba el alto completo de la ventana. Al adoptar el
    visor la proporcion del escritorio remoto, ese alto sobrante quedaba como un
    vacio enorme debajo del video. */
@@ -1223,4 +1188,42 @@ button:disabled {
     height: auto !important;
     overflow: visible !important;
   }
+}
+
+/* ===== Movil vertical: video arriba, controles fijos debajo =====
+   El escritorio remoto es apaisado y el telefono vertical, asi que siempre
+   sobraba altura. En vez de flotar sobre el video, los controles ocupan ese
+   espacio y la pantalla remota queda libre. */
+.screen-viewer.stacked {
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  height: auto;
+}
+
+.screen-viewer.stacked video {
+  width: 100%;
+  height: auto;
+  flex: none;
+}
+
+.screen-viewer.stacked .mobile-controls-wrap {
+  position: static;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  margin-top: 10px;
+  background: rgba(13, 19, 35, 0.6);
+  box-shadow: none;
+}
+
+/* En pantalla completa si flota, pegado abajo para no chocar con los botones
+   de Ctrl+Alt+Supr y pantalla completa, que estan arriba a la derecha. */
+.screen-viewer.fullscreen .mobile-controls-wrap {
+  top: auto;
+  bottom: 12px;
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   MonitorPlay, Maximize2, Minimize2, Keyboard, MousePointer, ChevronUp, ChevronDown,
   Clipboard, XCircle, Hand, Crosshair, Command, CornerDownLeft,
-  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Gamepad2
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight
 } from 'lucide-react';
 
 interface Props {
@@ -42,7 +42,6 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const [isRightClickMode, setIsRightClickMode] = useState(false);
   const [pointerMode, setPointerMode] = useState<PointerMode>(readStoredMode);
   const [showKeysBar, setShowKeysBar] = useState(false);
-  const [controlsOpen, setControlsOpen] = useState(false);
 
   const isKeyboardActiveRef = useRef(false);
   const touchMouseStartRef = useRef<{ x: number; y: number; time: number; isTap: boolean } | null>(null);
@@ -129,14 +128,21 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     if (!c || !v) return;
     const portraitPhone = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
     if (portraitPhone && !isFullscreenRef.current && v.videoWidth && v.videoHeight) {
-      c.style.aspectRatio = v.videoWidth + ' / ' + v.videoHeight;
+      // El video toma su proporcion real y el contenedor se apila: los controles
+      // caen debajo, en el espacio que antes quedaba muerto.
+      c.classList.add('stacked');
       c.style.height = 'auto';
       c.style.flex = 'none';
+      v.style.aspectRatio = v.videoWidth + ' / ' + v.videoHeight;
+      v.style.height = 'auto';
     } else {
-      c.style.aspectRatio = '';
+      c.classList.remove('stacked');
       c.style.height = '';
       c.style.flex = '';
+      v.style.aspectRatio = '';
+      v.style.height = '';
     }
+    c.style.aspectRatio = '';
     updateCursorOverlay();
   };
 
@@ -1056,21 +1062,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             <span className="press-ring" />
           </div>
 
-          {/* Cerrado: un solo boton. En vertical el video mide ~190 px de alto y
-              el panel completo lo tapaba entero. */}
-          {!controlsOpen && (
-            <button
-              {...stopPropagationProps}
-              className="mobile-controls-toggle"
-              onClick={(e) => { e.stopPropagation(); setControlsOpen(true); }}
-              title="Mostrar controles"
-            >
-              <Gamepad2 size={20} />
-            </button>
-          )}
-
           {/* Controles táctiles: teclas especiales + dos filas fijas, sin scroll */}
-          {controlsOpen && (
           <div className="mobile-controls-wrap" style={{ display: 'none' }} {...stopPropagationProps}>
           {showKeysBar && (
             <div className="mobile-keys-bar">
@@ -1098,13 +1090,6 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
           {/* Fila 1: ratón */}
           <div className="mobile-controls-bar">
-            <button
-              className="mobile-control-btn"
-              onClick={() => { setControlsOpen(false); setShowKeysBar(false); }}
-              title="Ocultar controles"
-            >
-              <ChevronUp size={20} />
-            </button>
             <button
               className={`mobile-control-btn ${pointerMode === 'touchpad' ? 'active' : ''}`}
               onClick={togglePointerMode}
@@ -1182,7 +1167,6 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             )}
           </div>
           </div>
-          )}
 
           {platform === 'windows' && (
             <button
