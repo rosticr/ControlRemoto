@@ -22,11 +22,12 @@ const DOUBLE_TAP_MS = 320;    // ventana para encadenar el segundo toque
 
 const readStoredMode = (): PointerMode => {
   try {
-    const saved = localStorage.getItem('cr_pointer_mode');
+    const saved = localStorage.getItem('cr_pointer_mode_v2');
     if (saved === 'direct' || saved === 'touchpad') return saved;
-    // En teléfono el modo touchpad es mucho más preciso; en escritorio no aplica.
-    const isPhone = window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 768;
-    return isPhone ? 'touchpad' : 'direct';
+    // Mismo criterio que la media query que muestra los controles tactiles.
+    // Antes exigia (pointer: coarse), que el WebView de Android devuelve false:
+    // el telefono quedaba atrapado en modo directo y sin pulsacion larga.
+    return window.innerWidth <= 768 ? 'touchpad' : 'direct';
   } catch (e) {
     return 'direct';
   }
@@ -54,10 +55,11 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const pointerModeRef = useRef<PointerMode>(pointerMode);
   const isRightClickModeRef = useRef(false);
   const multiTouchRef = useRef(false);
+  const lastPointerTypeRef = useRef<string>('mouse');
 
   useEffect(() => {
     pointerModeRef.current = pointerMode;
-    try { localStorage.setItem('cr_pointer_mode', pointerMode); } catch (e) {}
+    try { localStorage.setItem('cr_pointer_mode_v2', pointerMode); } catch (e) {}
   }, [pointerMode]);
 
   useEffect(() => {
@@ -126,15 +128,22 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   // Indicador temporal de diagnostico: muestra el ultimo comando enviado al
   // equipo remoto, para ver desde el telefono que llega de verdad.
   const hudRef = useRef<HTMLDivElement>(null);
+  const hudLinesRef = useRef<string[]>([]);
   const emit = (type: string, x: number, y: number) => {
     const el = hudRef.current;
     if (el) {
-      el.textContent = (type === 'move' || type === 'wheel')
+      const txt = (type === 'move' || type === 'wheel')
         ? type
         : type + '  ' + x.toFixed(2) + ' ' + y.toFixed(2);
-      el.classList.remove('flash');
-      void el.offsetWidth;
-      el.classList.add('flash');
+      const lines = hudLinesRef.current;
+      if (!(txt === 'move' && lines[lines.length - 1] === 'move')) {
+        lines.push(txt);
+        while (lines.length > 4) lines.shift();
+        el.textContent = lines.join(String.fromCharCode(10));
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
+      }
     }
     onMouseEvent(type, x, y);
   };
@@ -534,6 +543,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     if (e.pointerType === 'touch' && !e.isPrimary) {
       return;
     }
+    lastPointerTypeRef.current = e.pointerType;
 
     const video = e.currentTarget;
 
@@ -843,6 +853,16 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               const p = padRef.current;
               if (p.active && !p.dragging && !p.didLongPress) {
                 fireRightClick();
+                return;
+              }
+              // Modo directo: el dedo ya dejo el boton izquierdo pulsado, se suelta
+              // antes de mandar el clic derecho donde esta el cursor.
+              // Solo si el gesto vino de un dedo: con raton el boton derecho ya
+              // genero su propio rightdown en pointerdown.
+              if (!p.active && lastPointerTypeRef.current === 'touch') {
+                emit('up', cursorRef.current.x, cursorRef.current.y);
+                clickAtCursor(true);
+                vibrate(25);
               }
             }}
           />
@@ -930,6 +950,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               title={pointerMode === 'touchpad' ? 'Modo touchpad (tocar para pasar a directo)' : 'Modo directo (tocar para pasar a touchpad)'}
             >
               {pointerMode === 'touchpad' ? <Hand size={20} /> : <Crosshair size={20} />}
+              <span className="btn-tag">{pointerMode === 'touchpad' ? 'pad' : 'dir'}</span>
             </button>
             <button
               className={`mobile-control-btn right-click-btn ${isRightClickMode ? 'active' : ''}`}

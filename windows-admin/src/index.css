@@ -1016,3 +1016,59 @@ button:disabled {
     order: 1;
   }
 }
+
+/* Panel tactil: una sola caja compacta arriba con las lineas dentro */
+@media (max-width: 768px) {
+  /* Con position:absolute + left:50% el ancho disponible era solo la mitad
+     derecha del visor, asi que cada fila se partia en dos lineas sueltas. */
+  .mobile-controls-wrap {
+    left: 8px;
+    right: 8px;
+    top: 62px;
+    bottom: auto;
+    transform: none;
+    width: auto;
+    max-width: none;
+    padding: 6px 8px;
+    gap: 6px;
+    background: rgba(13, 19, 35, 0.82);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Las filas pierden su caja propia: el panel es uno solo */
+  .mobile-controls-wrap .mobile-controls-bar,
+  .mobile-controls-wrap .mobile-keys-bar {
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .mobile-controls-wrap .mobile-control-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .mobile-controls-wrap .btn-tag {
+    position: absolute;
+    bottom: 0px;
+    right: 3px;
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+  }
+
+  .input-hud {
+    white-space: pre-line;
+  }
+}
