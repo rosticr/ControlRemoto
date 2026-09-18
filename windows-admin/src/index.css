@@ -1092,3 +1092,125 @@ button:disabled {
 .press-dot.pressing .press-ring {
   animation: cr-press-ring 450ms linear forwards;
 }
+
+/* ===== Controles tactiles: definicion unica, visibles tambien en horizontal =====
+   Antes todo vivia dentro de @media (max-width: 768px), asi que al girar el
+   telefono (ancho ~800px) desaparecian teclado, clic derecho y desconectar. */
+.mobile-controls-wrap {
+  position: absolute;
+  top: 62px;
+  left: 8px;
+  right: 8px;
+  bottom: auto;
+  transform: none;
+  width: auto;
+  max-width: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(13, 19, 35, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  z-index: 999;
+}
+
+.mobile-controls-wrap .mobile-controls-bar,
+.mobile-controls-wrap .mobile-keys-bar {
+  display: flex !important;
+  position: static;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px !important;
+}
+
+.mobile-controls-wrap .mobile-keys-bar {
+  order: 1;
+}
+
+.mobile-controls-wrap .mobile-control-btn {
+  flex: 0 0 auto;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.2s;
+}
+
+.mobile-controls-wrap .mobile-control-btn.active {
+  background: var(--accent);
+  color: #000;
+}
+
+.mobile-controls-wrap .mobile-control-btn.danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+@media (max-width: 768px), (max-height: 560px) {
+  .mobile-controls-wrap {
+    display: flex !important;
+  }
+}
+
+/* Telefono en horizontal: tira compacta abajo a la izquierda, en una sola linea */
+@media (max-height: 560px) {
+  .mobile-controls-wrap {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: auto;
+    width: auto;
+    max-width: calc(100% - 16px);
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .mobile-controls-wrap .mobile-controls-bar,
+  .mobile-controls-wrap .mobile-keys-bar {
+    width: auto;
+  }
+
+  .input-hud {
+    display: none !important;
+  }
+}
+
+/* Sin relleno propio en movil: el visor aprovecha todo el ancho disponible */
+@media (max-width: 768px) {
+  .screen-viewer.platform-windows,
+  .screen-viewer.platform-android {
+    padding: 0;
+  }
+
+  .screen-viewer:not(.fullscreen) video {
+    border-radius: 12px;
+  }
+}

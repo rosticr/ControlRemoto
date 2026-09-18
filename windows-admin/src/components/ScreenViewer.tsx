@@ -55,6 +55,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const pointerModeRef = useRef<PointerMode>(pointerMode);
   const isRightClickModeRef = useRef(false);
   const multiTouchRef = useRef(false);
+  const isFullscreenRef = useRef(false);
   const lastPointerTypeRef = useRef<string>('mouse');
   const pressDotRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,10 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   useEffect(() => {
     isRightClickModeRef.current = isRightClickMode;
   }, [isRightClickMode]);
+
+  useEffect(() => {
+    isFullscreenRef.current = isFullscreen;
+  }, [isFullscreen]);
 
   // Geometría real del vídeo dentro del contenedor (contempla letterbox y zoom)
   const getVideoGeometry = () => {
@@ -110,6 +115,26 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     if (videoRef.current) {
       videoRef.current.style.transform = `scale(${scaleRef.current}) translate(${positionRef.current.x}px, ${positionRef.current.y}px)`;
       videoRef.current.style.transition = scaleRef.current === 1 ? 'transform 0.2s ease-out' : 'none';
+    }
+    updateCursorOverlay();
+  };
+
+  // El contenedor adopta la proporcion exacta del escritorio remoto. Sin esto el
+  // video se dibuja con object-fit:contain dentro de una caja mucho mas alta y
+  // quedan franjas negras arriba y abajo.
+  const applyMobileAspect = () => {
+    const c = containerRef.current;
+    const v = videoRef.current;
+    if (!c || !v) return;
+    const portraitPhone = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+    if (portraitPhone && !isFullscreenRef.current && v.videoWidth && v.videoHeight) {
+      c.style.aspectRatio = v.videoWidth + ' / ' + v.videoHeight;
+      c.style.height = 'auto';
+      c.style.flex = 'none';
+    } else {
+      c.style.aspectRatio = '';
+      c.style.height = '';
+      c.style.flex = '';
     }
     updateCursorOverlay();
   };
@@ -630,7 +655,11 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   }, [stream]);
 
   useEffect(() => {
-    const onResize = () => updateCursorOverlay();
+    applyMobileAspect();
+  }, [isFullscreen, stream]);
+
+  useEffect(() => {
+    const onResize = () => { applyMobileAspect(); updateCursorOverlay(); };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
     return () => {
@@ -974,6 +1003,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               clearDirectTimer();
               cancelPadGesture();
             }}
+            onLoadedMetadata={applyMobileAspect}
             onWheel={handleWheelEvent}
             onContextMenu={(e) => {
               e.preventDefault();
