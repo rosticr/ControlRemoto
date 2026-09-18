@@ -975,36 +975,7 @@ button:disabled {
   }
 }
 
-/* Indicador temporal de diagnostico del control remoto */
-.input-hud {
-  display: none;
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  padding: 4px 9px;
-  border-radius: 6px;
-  background: rgba(13, 19, 35, 0.8);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: ui-monospace, monospace;
-  font-size: 0.7rem;
-  line-height: 1.4;
-  pointer-events: none;
-  z-index: 998;
-  opacity: 0.75;
-}
-
-.input-hud.flash {
-  color: var(--accent, #38bdf8);
-  border-color: var(--accent, #38bdf8);
-  opacity: 1;
-}
-
 @media (max-width: 768px) {
-  .input-hud {
-    display: block;
-  }
-
   /* Los controles pasan arriba, justo debajo de pantalla completa y Ctrl+Alt+Supr */
   .mobile-controls-wrap {
     top: 62px;
@@ -1068,9 +1039,6 @@ button:disabled {
     opacity: 0.9;
   }
 
-  .input-hud {
-    white-space: pre-line;
-  }
 }
 
 /* Anillo de pulsacion larga en modo directo, sobre el punto tocado */
@@ -1198,9 +1166,6 @@ button:disabled {
     width: auto;
   }
 
-  .input-hud {
-    display: none !important;
-  }
 }
 
 /* Sin relleno propio en movil: el visor aprovecha todo el ancho disponible */
