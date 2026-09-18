@@ -1179,3 +1179,48 @@ button:disabled {
     border-radius: 12px;
   }
 }
+
+/* Boton unico cuando los controles estan plegados */
+.mobile-controls-toggle {
+  display: none;
+  position: absolute;
+  top: 62px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(13, 19, 35, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  color: #fff;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  z-index: 999;
+}
+
+@media (max-width: 768px), (max-height: 560px) {
+  .mobile-controls-toggle {
+    display: flex;
+  }
+}
+
+@media (max-height: 560px) {
+  .mobile-controls-toggle {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+  }
+}
+
+/* El panel de detalles reservaba el alto completo de la ventana. Al adoptar el
+   visor la proporcion del escritorio remoto, ese alto sobrante quedaba como un
+   vacio enorme debajo del video. */
+@media (max-width: 768px) {
+  .details-panel:has(.screen-viewer) {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
