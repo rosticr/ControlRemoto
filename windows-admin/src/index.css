@@ -1072,3 +1072,23 @@ button:disabled {
     white-space: pre-line;
   }
 }
+
+/* Anillo de pulsacion larga en modo directo, sobre el punto tocado */
+.press-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 900;
+}
+
+.press-dot .press-ring {
+  left: 0;
+  top: 0;
+}
+
+.press-dot.pressing .press-ring {
+  animation: cr-press-ring 450ms linear forwards;
+}

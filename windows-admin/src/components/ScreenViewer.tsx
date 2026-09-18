@@ -56,6 +56,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const isRightClickModeRef = useRef(false);
   const multiTouchRef = useRef(false);
   const lastPointerTypeRef = useRef<string>('mouse');
+  const pressDotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     pointerModeRef.current = pointerMode;
@@ -223,7 +224,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     secondTap: false,
     longPressTimer: null as any
   });
-  const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  const lastTapRef = useRef<{ t: number; x: number; y: number; nx: number; ny: number } | null>(null);
 
   // Anillo que se cierra alrededor del cursor mientras se mantiene pulsado:
   // sin esta señal no hay forma de saber cuánto falta para el clic derecho.
@@ -374,7 +375,9 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         // Un toque = un clic. Dos toques seguidos llegan como dos clics en la misma
         // coordenada, que es justo lo que Windows interpreta como doble clic.
         clickAtCursor();
-        lastTapRef.current = p.secondTap ? null : { t: now, x: e.clientX, y: e.clientY };
+        lastTapRef.current = p.secondTap
+          ? null
+          : { t: now, x: e.clientX, y: e.clientY, nx: cursorRef.current.x, ny: cursorRef.current.y };
       } else {
         lastTapRef.current = null;
       }
@@ -384,6 +387,127 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       p.didLongPress = false;
       return;
     }
+  };
+
+  // --- Modo directo sobre pantalla tactil -------------------------------------
+  // El modo directo mantiene el posicionamiento absoluto (el dedo va donde toca),
+  // pero necesita sus propios gestos: sin ellos no hay clic derecho, y el doble
+  // clic falla porque dos toques nunca caen en el mismo pixel remoto.
+  const directRef = useRef({
+    timer: null as any,
+    startX: 0,
+    startY: 0,
+    nx: 0,
+    ny: 0,
+    downSent: false,
+    fired: false,
+    snap: false,
+    moved: false
+  });
+
+  const showPressDot = (clientX: number, clientY: number) => {
+    const el = pressDotRef.current;
+    const container = containerRef.current;
+    if (!el || !container) return;
+    const r = container.getBoundingClientRect();
+    el.style.transform = 'translate(' + (clientX - r.left) + 'px, ' + (clientY - r.top) + 'px)';
+    el.classList.remove('pressing');
+    void el.offsetWidth;
+    el.classList.add('pressing');
+  };
+
+  const hidePressDot = () => {
+    const el = pressDotRef.current;
+    if (el) el.classList.remove('pressing');
+  };
+
+  const clearDirectTimer = () => {
+    const d = directRef.current;
+    if (d.timer) { clearTimeout(d.timer); d.timer = null; }
+    hidePressDot();
+  };
+
+  // Devuelve true cuando el evento ya quedo atendido aqui
+  const handleDirectTouch = (e: React.PointerEvent<HTMLVideoElement>, type: string) => {
+    const d = directRef.current;
+    const now = Date.now();
+
+    if (type === 'down') {
+      clearDirectTimer();
+      d.fired = false;
+      d.snap = false;
+      d.moved = false;
+      d.startX = e.clientX;
+      d.startY = e.clientY;
+      d.downSent = scaleRef.current === 1;
+
+      const geo = getVideoGeometry();
+      if (!geo) return false;
+      const nx = (e.clientX - geo.rect.left - geo.startX) / geo.actualWidth;
+      const ny = (e.clientY - geo.rect.top - geo.startY) / geo.actualHeight;
+      if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return false;
+      d.nx = nx;
+      d.ny = ny;
+
+      const prev = lastTapRef.current;
+      const isSecond = !!prev && (now - prev.t) < DOUBLE_TAP_MS
+        && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 40;
+
+      if (isSecond && prev) {
+        // Segundo toque: repite la coordenada EXACTA del primero. Windows exige
+        // que los dos clics caigan casi en el mismo pixel para verlo como doble,
+        // y dos toques de dedo nunca coinciden tan fino.
+        d.snap = true;
+        d.nx = prev.nx;
+        d.ny = prev.ny;
+        cursorRef.current = { x: d.nx, y: d.ny };
+        lastTapRef.current = null;
+        emit('down', d.nx, d.ny);
+        return true;
+      }
+
+      cursorRef.current = { x: nx, y: ny };
+      showPressDot(e.clientX, e.clientY);
+      d.timer = setTimeout(() => {
+        d.timer = null;
+        hidePressDot();
+        d.fired = true;
+        lastTapRef.current = null;
+        // El toque dejo el boton izquierdo pulsado: se suelta antes del derecho
+        if (d.downSent) emit('up', d.nx, d.ny);
+        cursorRef.current = { x: d.nx, y: d.ny };
+        clickAtCursor(true);
+        vibrate(25);
+      }, LONG_PRESS_MS);
+      return false;
+    }
+
+    if (type === 'move') {
+      if (d.timer && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > LONG_PRESS_SLOP) {
+        d.moved = true;
+        clearDirectTimer();
+      }
+      return d.snap;
+    }
+
+    if (type === 'up') {
+      clearDirectTimer();
+      if (d.snap) {
+        d.snap = false;
+        emit('up', d.nx, d.ny);
+        return true;
+      }
+      if (d.fired) {
+        d.fired = false;
+        return true;
+      }
+      lastTapRef.current = d.moved
+        ? null
+        : { t: now, x: e.clientX, y: e.clientY, nx: d.nx, ny: d.ny };
+      return false;
+    }
+
+    return false;
   };
 
   // --- Gestos del contenedor (zoom y paneo) -----------------------------------
@@ -553,6 +677,10 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       }
       handleTouchpadPointer(e, type);
       return;
+    }
+
+    if (e.pointerType === 'touch' && pointerModeRef.current === 'direct') {
+      if (handleDirectTouch(e, type)) return;
     }
 
     if (e.pointerType === 'touch' && scaleRef.current > 1) {
@@ -843,6 +971,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               if (p.active && !p.moved && !p.dragging && !p.didLongPress && p.longPressTimer) {
                 fireRightClick();
               }
+              clearDirectTimer();
               cancelPadGesture();
             }}
             onWheel={handleWheelEvent}
@@ -859,7 +988,8 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               // antes de mandar el clic derecho donde esta el cursor.
               // Solo si el gesto vino de un dedo: con raton el boton derecho ya
               // genero su propio rightdown en pointerdown.
-              if (!p.active && lastPointerTypeRef.current === 'touch') {
+              if (!p.active && lastPointerTypeRef.current === 'touch'
+                  && !directRef.current.fired && !directRef.current.timer) {
                 emit('up', cursorRef.current.x, cursorRef.current.y);
                 clickAtCursor(true);
                 vibrate(25);
@@ -913,6 +1043,10 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               zIndex: 1
             }}
           />
+
+          <div ref={pressDotRef} className="press-dot" aria-hidden="true">
+            <span className="press-ring" />
+          </div>
 
           <div ref={hudRef} className="input-hud" aria-hidden="true" />
 
