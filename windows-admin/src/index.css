@@ -1270,3 +1270,36 @@ button:disabled {
     height: auto !important;
   }
 }
+
+/* ===== Horizontal: los botones a la izquierda, en columnas =====
+   Con la pantalla apaisada el escritorio remoto deja libre la banda izquierda,
+   asi que ahi no tapan nada. Abajo si estorbaban la barra de tareas remota. */
+@media (max-height: 560px) {
+  .mobile-controls-wrap {
+    top: 50%;
+    bottom: auto;
+    left: 8px;
+    right: auto;
+    transform: translateY(-50%);
+    flex-direction: row;
+    align-items: flex-start;
+    width: auto;
+    max-width: calc(100% - 16px);
+    max-height: calc(100% - 16px);
+    gap: 6px;
+    background: rgba(13, 19, 35, 0.72);
+  }
+
+  .mobile-controls-wrap .mobile-controls-bar,
+  .mobile-controls-wrap .mobile-keys-bar {
+    flex-direction: column;
+    flex-wrap: wrap;
+    width: auto;
+    max-height: calc(100vh - 40px);
+    align-content: flex-start;
+  }
+
+  .mobile-controls-wrap .mobile-keys-bar {
+    order: 0;
+  }
+}

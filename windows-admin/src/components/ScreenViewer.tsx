@@ -126,7 +126,17 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     const c = containerRef.current;
     const v = videoRef.current;
     if (!c || !v) return;
-    const portraitPhone = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+    // Ojo: con el teclado abierto el WebView encoge la ventana (adjustResize) y
+    // innerHeight cae por debajo de innerWidth. Comparar ambos daba 'horizontal'
+    // y el layout se desarmaba al escribir. screen.orientation no se inmuta.
+    let portrait;
+    try {
+      const t = (window.screen && (window.screen as any).orientation || {}).type;
+      portrait = typeof t === 'string' ? t.indexOf('portrait') === 0 : window.innerHeight > window.innerWidth;
+    } catch (err) {
+      portrait = window.innerHeight > window.innerWidth;
+    }
+    const portraitPhone = window.innerWidth <= 768 && portrait;
     if (portraitPhone && !isFullscreenRef.current && v.videoWidth && v.videoHeight) {
       // El video toma su proporcion real y el contenedor se apila: los controles
       // caen debajo, en el espacio que antes quedaba muerto.
@@ -893,6 +903,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       } else {
         isKeyboardActiveRef.current = true;
         keyboardInputRef.current.focus();
+        // El teclado ocupa media pantalla: deja el video arriba del todo
+        try {
+          if (containerRef.current && window.innerWidth <= 768) {
+            containerRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          }
+        } catch (err) {}
         setTimeout(() => {
           const bridge = (window as any).AndroidBridge;
           if (bridge && typeof bridge.showKeyboard === 'function') {
