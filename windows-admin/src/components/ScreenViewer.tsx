@@ -123,6 +123,22 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     };
   };
 
+  // Indicador temporal de diagnostico: muestra el ultimo comando enviado al
+  // equipo remoto, para ver desde el telefono que llega de verdad.
+  const hudRef = useRef<HTMLDivElement>(null);
+  const emit = (type: string, x: number, y: number) => {
+    const el = hudRef.current;
+    if (el) {
+      el.textContent = (type === 'move' || type === 'wheel')
+        ? type
+        : type + '  ' + x.toFixed(2) + ' ' + y.toFixed(2);
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    }
+    onMouseEvent(type, x, y);
+  };
+
   const touchStartRef = useRef({
     distance: 0,
     scale: 1,
@@ -144,7 +160,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     }
     const p = pendingMoveRef.current;
     pendingMoveRef.current = null;
-    if (p) onMouseEvent('move', p.x, p.y);
+    if (p) emit('move', p.x, p.y);
   };
 
   const queueMove = (x: number, y: number) => {
@@ -154,7 +170,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         rafRef.current = null;
         const p = pendingMoveRef.current;
         pendingMoveRef.current = null;
-        if (p) onMouseEvent('move', p.x, p.y);
+        if (p) emit('move', p.x, p.y);
       });
     }
   };
@@ -163,18 +179,18 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     flushPendingMove();
     const { x, y } = cursorRef.current;
     const useRight = forceRight === true || isRightClickModeRef.current;
-    onMouseEvent(useRight ? 'rightdown' : 'down', x, y);
-    setTimeout(() => onMouseEvent(useRight ? 'rightup' : 'up', x, y), 20);
+    emit(useRight ? 'rightdown' : 'down', x, y);
+    setTimeout(() => emit(useRight ? 'rightup' : 'up', x, y), 20);
     if (isRightClickModeRef.current && forceRight !== true) setIsRightClickMode(false);
   };
 
   const doubleClickAtCursor = () => {
     flushPendingMove();
     const { x, y } = cursorRef.current;
-    onMouseEvent('down', x, y);
-    setTimeout(() => onMouseEvent('up', x, y), 20);
-    setTimeout(() => onMouseEvent('down', x, y), 70);
-    setTimeout(() => onMouseEvent('up', x, y), 90);
+    emit('down', x, y);
+    setTimeout(() => emit('up', x, y), 20);
+    setTimeout(() => emit('down', x, y), 70);
+    setTimeout(() => emit('up', x, y), 90);
   };
 
   const vibrate = (ms: number) => {
@@ -223,7 +239,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     clearPadTimers();
     if (p.dragging) {
       flushPendingMove();
-      onMouseEvent('up', cursorRef.current.x, cursorRef.current.y);
+      emit('up', cursorRef.current.x, cursorRef.current.y);
     }
     p.active = false;
     p.dragging = false;
@@ -250,7 +266,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     p.dragging = true;
     lastTapRef.current = null;
     flushPendingMove();
-    onMouseEvent('down', cursorRef.current.x, cursorRef.current.y);
+    emit('down', cursorRef.current.x, cursorRef.current.y);
     vibrate(15);
   };
 
@@ -342,7 +358,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
 
       if (p.dragging) {
         flushPendingMove();
-        onMouseEvent('up', cursorRef.current.x, cursorRef.current.y);
+        emit('up', cursorRef.current.x, cursorRef.current.y);
         p.dragging = false;
         lastTapRef.current = null;
       } else if (!p.moved && !p.didLongPress) {
@@ -509,7 +525,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
           setIsRightClickMode(false);
         }
       }
-      onMouseEvent(eventType, x, y);
+      emit(eventType, x, y);
     }
   };
 
@@ -630,7 +646,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const handleWheelEvent = (e: React.WheelEvent<HTMLVideoElement>) => {
     // deltaY > 0 means scroll down (send negative value to csc), deltaY < 0 means scroll up (send positive)
     const scrollAmount = e.deltaY > 0 ? -120 : 120;
-    onMouseEvent('wheel', scrollAmount, 0);
+    emit('wheel', scrollAmount, 0);
   };
 
   const handleKeyboardInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -747,7 +763,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
         // Alinea el puntero real con el cursor que dibujamos
         setTimeout(() => {
           updateCursorOverlay();
-          onMouseEvent('move', cursorRef.current.x, cursorRef.current.y);
+          emit('move', cursorRef.current.x, cursorRef.current.y);
         }, 0);
       }
       return next;
@@ -878,6 +894,8 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             }}
           />
 
+          <div ref={hudRef} className="input-hud" aria-hidden="true" />
+
           {/* Controles táctiles: teclas especiales + dos filas fijas, sin scroll */}
           <div className="mobile-controls-wrap" style={{ display: 'none' }} {...stopPropagationProps}>
           {showKeysBar && (
@@ -934,14 +952,14 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             </button>
             <button
               className="mobile-control-btn"
-              onClick={() => onMouseEvent('wheel', 120, 0)}
+              onClick={() => emit('wheel', 120, 0)}
               title="Scroll Arriba"
             >
               <ChevronUp size={20} />
             </button>
             <button
               className="mobile-control-btn"
-              onClick={() => onMouseEvent('wheel', -120, 0)}
+              onClick={() => emit('wheel', -120, 0)}
               title="Scroll Abajo"
             >
               <ChevronDown size={20} />
