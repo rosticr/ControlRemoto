@@ -881,3 +881,29 @@ button:disabled {
     background: var(--primary);
   }
 }
+
+/* Anillo de pulsación larga alrededor del cursor (clic derecho) */
+.remote-cursor .press-ring {
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  margin-top: -17px;
+  border-radius: 50%;
+  border: 2px solid var(--accent, #38bdf8);
+  opacity: 0;
+  transform: scale(0.35);
+  pointer-events: none;
+}
+
+.remote-cursor.pressing .press-ring {
+  animation: cr-press-ring 450ms linear forwards;
+}
+
+@keyframes cr-press-ring {
+  0%   { opacity: 0.9; transform: scale(1.25); }
+  90%  { opacity: 0.9; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(0.35); }
+}

@@ -15,10 +15,10 @@ interface Props {
 
 type PointerMode = 'direct' | 'touchpad';
 
-const TAP_MAX_MOVE = 10;      // px de dedo antes de dejar de considerarlo un toque
-const LONG_PRESS_MS = 500;    // pulsación larga -> clic derecho
+const TAP_MAX_MOVE = 10;      // px de dedo antes de empezar a mover el puntero
+const LONG_PRESS_MS = 450;    // pulsación larga -> clic derecho
+const LONG_PRESS_SLOP = 24;   // deriva tolerada sin cancelar la pulsación larga
 const DOUBLE_TAP_MS = 320;    // ventana para encadenar el segundo toque
-const DRAG_HOLD_MS = 180;     // segundo toque mantenido -> arrastre
 
 const readStoredMode = (): PointerMode => {
   try {
@@ -196,15 +196,26 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
     dragging: false,
     didLongPress: false,
     secondTap: false,
-    longPressTimer: null as any,
-    dragTimer: null as any
+    longPressTimer: null as any
   });
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
+
+  // Anillo que se cierra alrededor del cursor mientras se mantiene pulsado:
+  // sin esta señal no hay forma de saber cuánto falta para el clic derecho.
+  const setPressing = (on: boolean) => {
+    const el = cursorElRef.current;
+    if (!el) return;
+    el.classList.remove('pressing');
+    if (on) {
+      void el.offsetWidth; // reinicia la animación
+      el.classList.add('pressing');
+    }
+  };
 
   const clearPadTimers = () => {
     const p = padRef.current;
     if (p.longPressTimer) { clearTimeout(p.longPressTimer); p.longPressTimer = null; }
-    if (p.dragTimer) { clearTimeout(p.dragTimer); p.dragTimer = null; }
+    setPressing(false);
   };
 
   const cancelPadGesture = () => {
@@ -224,6 +235,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
   const beginDrag = () => {
     const p = padRef.current;
     if (!p.active || p.dragging) return;
+    clearPadTimers();
     p.dragging = true;
     lastTapRef.current = null;
     flushPendingMove();
@@ -272,17 +284,18 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       p.didLongPress = false;
       p.secondTap = isSecond;
 
-      if (isSecond) {
-        // Segundo toque mantenido: bloquea el botón para arrastrar (como en un trackpad)
-        p.dragTimer = setTimeout(beginDrag, DRAG_HOLD_MS);
-      } else {
-        p.longPressTimer = setTimeout(() => {
-          if (!p.active || p.moved || p.dragging) return;
-          p.didLongPress = true;
-          clickAtCursor(true);
-          vibrate(25);
-        }, LONG_PRESS_MS);
-      }
+      // La pulsación larga se arma SIEMPRE, también cuando viene de un toque previo:
+      // tocar un archivo y mantener pulsado es justo como se pide el menú contextual.
+      // El arrastre se activa al mover el segundo toque, no por mantenerlo quieto.
+      setPressing(true);
+      p.longPressTimer = setTimeout(() => {
+        p.longPressTimer = null;
+        setPressing(false);
+        if (!p.active || p.dragging) return;
+        p.didLongPress = true;
+        clickAtCursor(true);
+        vibrate(25);
+      }, LONG_PRESS_MS);
       return;
     }
 
@@ -296,14 +309,21 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
       p.lastY = e.clientY;
       p.lastT = now;
 
-      if (!p.moved && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > TAP_MAX_MOVE) {
+      const drift = Math.hypot(e.clientX - p.startX, e.clientY - p.startY);
+
+      if (!p.moved && drift > TAP_MAX_MOVE) {
         p.moved = true;
-        if (p.longPressTimer) { clearTimeout(p.longPressTimer); p.longPressTimer = null; }
-        if (p.secondTap && !p.dragging) {
-          if (p.dragTimer) { clearTimeout(p.dragTimer); p.dragTimer = null; }
-          beginDrag();
-        }
+        // Segundo toque que además se arrastra: gesto de arrastre del trackpad
+        if (p.secondTap && !p.dragging) beginDrag();
       }
+
+      // La pulsación larga solo se cancela si el dedo se va de verdad, no por el temblor
+      if (p.longPressTimer && drift > LONG_PRESS_SLOP) {
+        clearTimeout(p.longPressTimer);
+        p.longPressTimer = null;
+        setPressing(false);
+      }
+
       if (p.moved || p.dragging) moveCursorBy(dx, dy, dt);
       return;
     }
@@ -789,6 +809,7 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
           {/* Cursor dibujado: sin él el modo touchpad sería a ciegas */}
           {pointerMode === 'touchpad' && (
             <div ref={cursorElRef} className="remote-cursor" aria-hidden="true">
+              <span className="press-ring" />
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path
                   d="M4 2 L4 19 L8.6 14.6 L11.6 21 L14.2 19.8 L11.2 13.6 L17.6 13.6 Z"
@@ -878,8 +899,12 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
             </button>
             <button
               className={`mobile-control-btn ${isRightClickMode ? 'active' : ''}`}
-              onClick={() => setIsRightClickMode(!isRightClickMode)}
-              title="Clic Derecho"
+              onClick={() => {
+                // En touchpad el cursor ya está donde el usuario quiere: clic derecho al momento.
+                if (pointerMode === 'touchpad') clickAtCursor(true);
+                else setIsRightClickMode(!isRightClickMode);
+              }}
+              title={pointerMode === 'touchpad' ? 'Clic derecho aquí' : 'Clic derecho (en el siguiente toque)'}
             >
               <MousePointer size={20} />
             </button>
