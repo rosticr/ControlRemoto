@@ -1227,3 +1227,46 @@ button:disabled {
   top: auto;
   bottom: 12px;
 }
+
+/* Los iconos solo tenian estas reglas dentro de @media (max-width: 768px): al
+   girar el telefono el ancho sube a ~800 px y los botones salian vacios. */
+.mobile-control-btn svg,
+.mobile-key-btn svg,
+.sas-btn svg,
+.fullscreen-toggle-btn svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  stroke: currentColor !important;
+  fill: none !important;
+  display: inline-block !important;
+}
+
+/* En movil, Ctrl+Alt+Supr y pantalla completa viven dentro del panel: flotando
+   sobre el escritorio remoto solo estorbaban la vista. */
+@media (max-width: 768px), (max-height: 560px) {
+  .screen-viewer .sas-btn,
+  .screen-viewer .fullscreen-toggle-btn {
+    display: none !important;
+  }
+}
+
+/* Horizontal: tira unica centrada abajo, sin pegarse a la esquina */
+@media (max-height: 560px) {
+  .mobile-controls-wrap {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    background: rgba(13, 19, 35, 0.72);
+  }
+}
+
+/* El contenedor interior seguia con flex:1 y reservaba el alto de la ventana,
+   dejando un vacio debajo de los controles. */
+@media (max-width: 768px) {
+  .details-panel:has(.screen-viewer) > div:has(.screen-viewer) {
+    flex: none !important;
+    height: auto !important;
+  }
+}

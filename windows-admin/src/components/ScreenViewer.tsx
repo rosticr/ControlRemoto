@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   MonitorPlay, Maximize2, Minimize2, Keyboard, MousePointer, ChevronUp, ChevronDown,
   Clipboard, XCircle, Hand, Crosshair, Command, CornerDownLeft,
-  ArrowUp, ArrowDown, ArrowLeft, ArrowRight
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Lock
 } from 'lucide-react';
 
 interface Props {
@@ -1155,6 +1155,22 @@ export default function ScreenViewer({ stream, onMouseEvent, onKeyEvent, platfor
               title="Pegar"
             >
               <Clipboard size={20} />
+            </button>
+            {platform === 'windows' && (
+              <button
+                className="mobile-control-btn"
+                onClick={() => { if (onKeyEvent) onKeyEvent('SEND_SAS'); }}
+                title="Ctrl+Alt+Supr"
+              >
+                <Lock size={20} />
+              </button>
+            )}
+            <button
+              className="mobile-control-btn"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            >
+              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </button>
             {onDisconnect && (
               <button
