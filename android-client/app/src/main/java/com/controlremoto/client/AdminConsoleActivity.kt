@@ -34,9 +34,12 @@ class AdminConsoleActivity : Activity() {
         settings.mediaPlaybackRequiresUserGesture = false
         settings.cacheMode = WebSettings.LOAD_NO_CACHE // Force loading from network
 
-        // Enable pinch-to-zoom (also implemented in React CSS/JS layout)
-        settings.setSupportZoom(true)
-        settings.builtInZoomControls = true
+        // El zoom propio del WebView competia con el zoom de dos dedos de la consola.
+        // Cuando ganaba el del WebView, getBoundingClientRect() dejaba de coincidir con
+        // el viewport visual y las coordenadas del raton salian desplazadas: los clics
+        // caian donde no debian. La consola ya implementa su propio zoom sobre el video.
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
         settings.displayZoomControls = false
 
         // Ensure webView can receive focus and input
