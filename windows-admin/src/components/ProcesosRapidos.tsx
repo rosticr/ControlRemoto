@@ -131,6 +131,14 @@ export default function ProcesosRapidos({
       prompts: [{ text: 'Ingrese el número de mesa a ELIMINAR (1-100):', type: 'number', min: 1, max: 100 }]
     },
     {
+      id: 'btn-q-desbloquear-mesa-terminal',
+      name: 'Desbloquear Mesa por Terminal',
+      description: 'Libera la mesa en la terminal borrando su registro de ESTADOMESAS (SALA 1).',
+      query: "delete ESTADOMESAS where SALA=1 and MESA={0}",
+      color: '#f97316',
+      prompts: [{ text: 'Ingrese el número de mesa a desbloquear (1-100):', type: 'number', min: 1, max: 100 }]
+    },
+    {
       id: 'btn-q-subtotal',
       name: 'Subtotal Tiquetescab',
       query: "UPDATE tiquetscab SET subtotal='F' WHERE numero={0}",
