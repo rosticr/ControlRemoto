@@ -88,10 +88,12 @@ export default function ProcesosRapidos({
   const PREDEFINED_QUERIES = [
     {
       id: 'btn-q-mesa-bloqueada',
-      name: 'Mesa Bloqueada',
-      query: "Update minutascab set consubtotal = 'F' where mesa = {0}",
+      name: 'Desbloquear Mesa',
+      description: 'Libera la mesa: quita el subtotal en minutascab y borra su registro de ESTADOMESAS (SALA 1).',
+      query: `Update minutascab set consubtotal = 'F' where mesa = {0};
+delete ESTADOMESAS where SALA=1 and MESA={0}`,
       color: '#ef4444',
-      prompts: [{ text: 'Ingrese el número de mesa (1-100):', type: 'number', min: 1, max: 100 }]
+      prompts: [{ text: 'Ingrese el número de mesa a desbloquear (1-100):', type: 'number', min: 1, max: 100 }]
     },
     {
       id: 'btn-q-actividad',
@@ -129,14 +131,6 @@ export default function ProcesosRapidos({
       query: "DELETE FROM minutascab WHERE mesa={0}",
       color: '#8b5cf6',
       prompts: [{ text: 'Ingrese el número de mesa a ELIMINAR (1-100):', type: 'number', min: 1, max: 100 }]
-    },
-    {
-      id: 'btn-q-desbloquear-mesa-terminal',
-      name: 'Desbloquear Mesa por Terminal',
-      description: 'Libera la mesa en la terminal borrando su registro de ESTADOMESAS (SALA 1).',
-      query: "delete ESTADOMESAS where SALA=1 and MESA={0}",
-      color: '#f97316',
-      prompts: [{ text: 'Ingrese el número de mesa a desbloquear (1-100):', type: 'number', min: 1, max: 100 }]
     },
     {
       id: 'btn-q-subtotal',
