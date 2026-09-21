@@ -31,6 +31,17 @@ export default function FileManager({ fileChannel }: Props) {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const downloadBufferRef = useRef<ArrayBuffer[]>([]);
+
+  // Seleccion multiple y descarga por lotes
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batch, setBatch] = useState<{ total: number; done: number; current: string } | null>(null);
+  const queueRef = useRef<{ path: string; name: string }[]>([]);
+  const foldersRef = useRef<string[]>([]);
+  const batchActiveRef = useRef(false);
+  const expandingRef = useRef(false);
+  const doneRef = useRef(0);
+  const totalRef = useRef(0);
+  const failedRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getFullPath = (fileName: string) => {
@@ -55,6 +66,20 @@ export default function FileManager({ fileChannel }: Props) {
           const msg = JSON.parse(event.data);
           
           if (msg.type === 'DIR_LIST') {
+            // Listado pedido para expandir una carpeta marcada: no navega, solo
+            // alimenta la cola de descarga.
+            if (expandingRef.current) {
+              const base = msg.data.currentPath || '';
+              const sep = base.endsWith('/') || base.endsWith(String.fromCharCode(92)) ? '' : '/';
+              (msg.data.files || []).forEach((f: RemoteFile) => {
+                if (!f.name || f.name === '..') return;
+                const p = f.path || (base + sep + f.name);
+                if (f.type === 'folder') foldersRef.current.push(p);
+                else queueRef.current.push({ path: p, name: f.name });
+              });
+              expandNextFolder();
+              return;
+            }
             setIsLoading(false);
             if (msg.data.error) {
               setErrorMessage(msg.data.error);
@@ -84,11 +109,21 @@ export default function FileManager({ fileChannel }: Props) {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             downloadBufferRef.current = [];
-            setSuccessMessage(`Archivo "${downloadNameRef.current}" descargado con éxito`);
-            setTimeout(() => setSuccessMessage(null), 4000);
+            if (batchActiveRef.current) {
+              doneRef.current += 1;
+              downloadNextFile();
+            } else {
+              setSuccessMessage(`Archivo "${downloadNameRef.current}" descargado con éxito`);
+              setTimeout(() => setSuccessMessage(null), 4000);
+            }
           } else if (msg.type === 'DOWNLOAD_ERROR') {
             setIsDownloading(false);
-            alert('Error al descargar: ' + msg.msg);
+            if (batchActiveRef.current) {
+              failedRef.current.push(downloadNameRef.current);
+              downloadNextFile();
+            } else {
+              alert('Error al descargar: ' + msg.msg);
+            }
           } else if (msg.type === 'UPLOAD_SUCCESS') {
             setIsUploading(false);
             setUploadProgress(0);
@@ -123,6 +158,7 @@ export default function FileManager({ fileChannel }: Props) {
   const requestDir = (path: string) => {
     if (fileChannel && fileChannel.readyState === 'open') {
       setIsLoading(true);
+      setSelected(new Set());
       console.log('Solicitando directorio:', path);
       fileChannel.send(JSON.stringify({ cmd: 'LIST_DIR', path }));
     }
@@ -132,6 +168,97 @@ export default function FileManager({ fileChannel }: Props) {
     if (fileChannel && fileChannel.readyState === 'open') {
       fileChannel.send(JSON.stringify({ cmd: 'REQ_DOWNLOAD', path }));
     }
+  };
+
+  const sendCmd = (payload: any) => {
+    if (fileChannel && fileChannel.readyState === 'open') {
+      fileChannel.send(JSON.stringify(payload));
+      return true;
+    }
+    return false;
+  };
+
+  const finishBatch = () => {
+    batchActiveRef.current = false;
+    expandingRef.current = false;
+    setBatch(null);
+    setSelected(new Set());
+    const fallidos = failedRef.current.length;
+    setSuccessMessage(fallidos
+      ? `${doneRef.current} archivo(s) descargados, ${fallidos} con error`
+      : `${doneRef.current} archivo(s) descargados con éxito`);
+    setTimeout(() => setSuccessMessage(null), 5000);
+  };
+
+  // Primero se recorren las carpetas marcadas, para conocer el total real
+  const expandNextFolder = () => {
+    const next = foldersRef.current.shift();
+    if (next) {
+      expandingRef.current = true;
+      if (!sendCmd({ cmd: 'LIST_DIR', path: next })) {
+        expandingRef.current = false;
+        finishBatch();
+      }
+      return;
+    }
+    expandingRef.current = false;
+    totalRef.current = queueRef.current.length;
+    if (!totalRef.current) {
+      batchActiveRef.current = false;
+      setBatch(null);
+      setErrorMessage('No se encontraron archivos en la selección');
+      setTimeout(() => setErrorMessage(null), 4000);
+      return;
+    }
+    downloadNextFile();
+  };
+
+  // Uno detrás de otro: el canal solo sirve una descarga a la vez
+  const downloadNextFile = () => {
+    const next = queueRef.current.shift();
+    if (!next) {
+      finishBatch();
+      return;
+    }
+    setBatch({ total: totalRef.current, done: doneRef.current, current: next.name });
+    if (!sendCmd({ cmd: 'REQ_DOWNLOAD', path: next.path })) finishBatch();
+  };
+
+  const startBatchDownload = () => {
+    if (batchActiveRef.current || isDownloading || isUploading) return;
+    const marcados = files.filter(f => f.name !== '..' && selected.has(f.path || getFullPath(f.name)));
+    if (!marcados.length) return;
+    queueRef.current = [];
+    foldersRef.current = [];
+    failedRef.current = [];
+    doneRef.current = 0;
+    totalRef.current = 0;
+    marcados.forEach(f => {
+      const p = f.path || getFullPath(f.name);
+      if (f.type === 'folder') foldersRef.current.push(p);
+      else queueRef.current.push({ path: p, name: f.name });
+    });
+    batchActiveRef.current = true;
+    setBatch({ total: 0, done: 0, current: 'Explorando carpetas...' });
+    expandNextFolder();
+  };
+
+  const toggleSelected = (p: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
+
+  const seleccionables = (Array.isArray(files) ? files : []).filter(f => f.name !== '..');
+  const todosMarcados = seleccionables.length > 0
+    && seleccionables.every(f => selected.has(f.path || getFullPath(f.name)));
+
+  const toggleAll = () => {
+    if (todosMarcados) setSelected(new Set());
+    else setSelected(new Set(seleccionables.map(f => f.path || getFullPath(f.name))));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,6 +319,15 @@ export default function FileManager({ fileChannel }: Props) {
           <button className="btn-secondary" onClick={() => requestDir(currentPath)} title="Refrescar">
             <RefreshCw size={18} />
           </button>
+          <button
+            className="btn-secondary"
+            onClick={startBatchDownload}
+            disabled={selected.size === 0 || !!batch || isDownloading || isUploading}
+            title="Descargar lo marcado"
+          >
+            <Download size={18} />
+            {batch ? `Descargando ${batch.done}/${batch.total}` : `Descargar (${selected.size})`}
+          </button>
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -222,6 +358,14 @@ export default function FileManager({ fileChannel }: Props) {
         </div>
       )}
 
+      {batch && (
+        <div style={{ padding: '12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', marginBottom: '16px', color: '#38bdf8', fontSize: '0.9rem' }}>
+          {batch.total > 0
+            ? `Descargando ${batch.done + 1} de ${batch.total}: ${batch.current}`
+            : batch.current}
+        </div>
+      )}
+
       {(isDownloading || isUploading) && (
         <div style={{ padding: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -249,7 +393,16 @@ export default function FileManager({ fileChannel }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)' }}>
-              <th style={{ padding: '16px', width: '50%' }}>Nombre</th>
+              <th style={{ padding: '16px', width: '44px' }}>
+                <input
+                  type="checkbox"
+                  checked={todosMarcados}
+                  onChange={toggleAll}
+                  title="Marcar todo"
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+              </th>
+              <th style={{ padding: '16px', width: '42%' }}>Nombre</th>
               <th style={{ padding: '16px', width: '20%' }}>Fecha</th>
               <th style={{ padding: '16px', width: '15%' }}>Tamaño</th>
               <th style={{ padding: '16px', width: '15%' }}>Acción</th>
@@ -270,6 +423,16 @@ export default function FileManager({ fileChannel }: Props) {
                   if (f.type === 'folder') requestDir(f.path || getFullPath(f.name));
                 }}
               >
+                <td style={{ padding: '16px' }} onClick={(e) => e.stopPropagation()}>
+                  {f.name !== '..' && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(f.path || getFullPath(f.name))}
+                      onChange={() => toggleSelected(f.path || getFullPath(f.name))}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                  )}
+                </td>
                 <td style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.name}>
                   <div style={{ flexShrink: 0 }}>
                     {f.type === 'folder' ? <Folder size={20} color="var(--primary)" /> : <FileIcon size={20} color="var(--text-muted)" />}
@@ -298,14 +461,14 @@ export default function FileManager({ fileChannel }: Props) {
             ))}
             {isLoading && (
               <tr>
-                <td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   Cargando contenido de la carpeta...
                 </td>
               </tr>
             )}
             {!isLoading && (!Array.isArray(files) || files.length === 0) && !errorMessage && (
               <tr>
-                <td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   Carpeta vacía.
                 </td>
               </tr>
