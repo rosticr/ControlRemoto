@@ -912,15 +912,20 @@ io.use((socket, next) => {
 
 const connectedDevices = new Map();
 
-// Endpoint de diagnóstico HTTP
+// Endpoint de diagnóstico HTTP. Sin token sólo dice quién está online (lo que
+// usa la consola para pintar los equipos); el detalle con specs y sockets de
+// admin (`todos`) exige una sesión válida.
 app.get('/status', (req, res) => {
   const devices = Array.from(connectedDevices.values());
-  res.json({
+  const authHeader = req.headers['authorization'];
+  const tokenVal = (authHeader && authHeader.split(' ')[1]) || req.query.token;
+  const body = {
     totalConectados: devices.length,
     androidOnline: devices.filter(d => d.isAndroid).map(d => d.roomId),
-    windowsOnline: devices.filter(d => d.isWindows).map(d => d.roomId),
-    todos: devices
-  });
+    windowsOnline: devices.filter(d => d.isWindows).map(d => d.roomId)
+  };
+  if (tokenVal && activeSessions.get(tokenVal)) body.todos = devices;
+  res.json(body);
 });
 
 io.on('connection', (socket) => {
@@ -1061,8 +1066,18 @@ io.on('connection', (socket) => {
     io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
   });
 
-  // Relés para Automatización de VPN SSL y Queries
+  // Relés para Automatización de VPN SSL y Queries.
+  // Los que van HACIA el equipo del local exigen socket.user: el cliente Windows
+  // corre execute-script por xp_cmdshell con sa y execute-query como SQL crudo,
+  // así que un socket sin sesión no puede llegar hasta ahí. Los admins lo traen
+  // del handshake (auth.token) o del evento 'authenticate'. El puente de FlamIA
+  // emite con io.to() desde el servidor y no pasa por acá.
   socket.on('vpn-connect', (data) => {
+    if (!socket.user) {
+      console.warn(`[${ts()}] RECHAZADO vpn-connect sin sesión: socket=${socket.id} ip=${socket.handshake.address} sala=${data && data.roomId}`);
+      socket.emit('vpn-connect-response', { success: false, message: 'No autorizado: iniciá sesión en la consola.' });
+      return;
+    }
     console.log(`[${ts()}] RELAY vpn-connect a sala=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('vpn-connect', {
       adminSocketId: socket.id,
@@ -1081,6 +1096,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('vpn-disconnect', (data) => {
+    if (!socket.user) {
+      console.warn(`[${ts()}] RECHAZADO vpn-disconnect sin sesión: socket=${socket.id} ip=${socket.handshake.address} sala=${data && data.roomId}`);
+      socket.emit('vpn-disconnect-response', { success: false, message: 'No autorizado: iniciá sesión en la consola.' });
+      return;
+    }
     console.log(`[${ts()}] RELAY vpn-disconnect a sala=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('vpn-disconnect', {
       adminSocketId: socket.id
@@ -1096,6 +1116,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('vpn-status-request', (data) => {
+    if (!socket.user) {
+      console.warn(`[${ts()}] RECHAZADO vpn-status-request sin sesión: socket=${socket.id} ip=${socket.handshake.address} sala=${data && data.roomId}`);
+      socket.emit('vpn-status-response', { success: false, status: 'disconnected', message: 'No autorizado: iniciá sesión en la consola.' });
+      return;
+    }
     console.log(`[${ts()}] RELAY vpn-status-request a sala=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('vpn-status-request', {
       adminSocketId: socket.id
@@ -1109,6 +1134,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('execute-query', (data) => {
+    if (!socket.user) {
+      console.warn(`[${ts()}] RECHAZADO execute-query sin sesión: socket=${socket.id} ip=${socket.handshake.address} sala=${data && data.roomId}`);
+      socket.emit('execute-query-response', { success: false, message: 'No autorizado: iniciá sesión en la consola.' });
+      return;
+    }
     console.log(`[${ts()}] RELAY execute-query a sala=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('execute-query', {
       adminSocketId: socket.id,
@@ -1124,6 +1154,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('execute-script', (data) => {
+    if (!socket.user) {
+      console.warn(`[${ts()}] RECHAZADO execute-script sin sesión: socket=${socket.id} ip=${socket.handshake.address} sala=${data && data.roomId}`);
+      socket.emit('execute-script-response', { success: false, message: 'No autorizado: iniciá sesión en la consola.' });
+      return;
+    }
     console.log(`[${ts()}] RELAY execute-script a sala=${data.roomId} desde=${socket.id}`);
     socket.to(data.roomId).emit('execute-script', {
       adminSocketId: socket.id,
