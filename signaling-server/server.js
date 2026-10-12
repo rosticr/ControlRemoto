@@ -928,6 +928,20 @@ app.get('/status', (req, res) => {
   res.json(body);
 });
 
+// Expulsa manualmente una sesión (socket) por su id. Sólo admins autenticados.
+app.post('/api/kick/:socketId', authenticateToken, (req, res) => {
+  const { socketId } = req.params;
+  const target = io.sockets.sockets.get(socketId);
+  if (!target) return res.status(404).json({ error: 'Socket no encontrado' });
+  target.disconnect(true);
+  connectedDevices.delete(socketId);
+  const onlineIds = Array.from(connectedDevices.values())
+    .filter(d => d.isAndroid || d.isWindows).map(d => d.roomId);
+  io.to('dashboard-room').emit('online-devices', onlineIds);
+  io.to('dashboard-room').emit('devices-update', Array.from(connectedDevices.values()));
+  res.json({ ok: true });
+});
+
 io.on('connection', (socket) => {
   const ts = () => new Date().toTimeString().split(' ')[0];
   console.log(`[${ts()}] NUEVA CONEXIÓN: ${socket.id} desde ${socket.handshake.address}`);
@@ -972,6 +986,22 @@ io.on('connection', (socket) => {
     const isWin = deviceId.startsWith('win-');
     const isAndroid = !isWin;
     
+    // Identidad física del equipo (serie / ANDROID_ID). 'N/D' o vacío = desconocida.
+    const serieOf = (s) => (s && s.serie && s.serie !== 'N/D') ? String(s.serie) : null;
+    const newSerie = serieOf(specs);
+
+    // Si otro EQUIPO distinto ya usa este número, no lo expulsamos: rechazamos el
+    // registro y le pedimos al cliente que genere un código nuevo.
+    for (const [existingSocketId, device] of connectedDevices.entries()) {
+      if (!(device.isAndroid || device.isWindows) || device.roomId !== deviceId || existingSocketId === socket.id) continue;
+      const oldSerie = serieOf(device.specs);
+      if (newSerie && oldSerie && newSerie !== oldSerie) {
+        console.log(`[${ts()}] ID DUPLICADO ${deviceId}: ${socket.id} (serie ${newSerie}) choca con ${existingSocketId} (serie ${oldSerie}). Rechazado.`);
+        socket.emit('id-duplicado', deviceId);
+        return;
+      }
+    }
+
     // Limpiar conexiones fantasma del mismo equipo
     for (const [existingSocketId, device] of connectedDevices.entries()) {
       if ((device.isAndroid || device.isWindows) && device.roomId === deviceId && existingSocketId !== socket.id) {

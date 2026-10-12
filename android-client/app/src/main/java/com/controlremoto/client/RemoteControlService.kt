@@ -68,7 +68,7 @@ class RemoteControlService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "START_WEBRTC") {
-            val roomId = intent.getStringExtra("ROOM_ID") ?: return super.onStartCommand(intent, flags, startId)
+            var roomId = intent.getStringExtra("ROOM_ID") ?: return super.onStartCommand(intent, flags, startId)
             @Suppress("DEPRECATION")
             val projectionData = intent.getParcelableExtra<Intent>("DATA") ?: return super.onStartCommand(intent, flags, startId)
             mediaProjectionData = projectionData
@@ -79,9 +79,20 @@ class RemoteControlService : Service() {
             sendStatus("Conectando a servidor de señalización...")
             Log.d("RemoteControl", "Iniciando WebRTC para la sala: $roomId")
 
+            // Evitar dos conexiones del mismo equipo (el servidor expulsaría a la anterior)
+            webRTCClient?.dispose()
+            webRTCClient = null
+            socketClient?.disconnect()
             socketClient = SocketClient()
             
             socketClient?.onStatusChange = { msg -> sendStatus(msg) }
+            socketClient?.onIdChanged = { newId ->
+                roomId = newId
+                sendBroadcast(Intent("ROSTI_ID").apply {
+                    setPackage(packageName)
+                    putExtra("id", newId)
+                })
+            }
             
             socketClient?.onUserDisconnected = {
                 Log.d("RemoteControl", "Admin se desconectó. Deteniendo transmisión WebRTC.")

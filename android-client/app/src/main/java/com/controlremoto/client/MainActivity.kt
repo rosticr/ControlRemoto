@@ -58,6 +58,16 @@ class MainActivity : Activity() {
         }
         registerReceiver(statusReceiver, IntentFilter("ROSTI_STATUS"), Context.RECEIVER_NOT_EXPORTED)
 
+        // El servicio avisa si el número fue cambiado por estar duplicado en otro equipo
+        val idReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val newId = intent?.getStringExtra("id") ?: return
+                generatedCode = newId
+                tvRoomCode.text = newId
+            }
+        }
+        registerReceiver(idReceiver, IntentFilter("ROSTI_ID"), Context.RECEIVER_NOT_EXPORTED)
+
         val prefs = getSharedPreferences("RostiPrefs", Context.MODE_PRIVATE)
         val isLoggedIn = prefs.getBoolean("is_logged_in", false)
 
