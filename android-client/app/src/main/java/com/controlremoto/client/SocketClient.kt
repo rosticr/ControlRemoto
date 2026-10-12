@@ -21,6 +21,7 @@ class SocketClient {
     var onAnswer: ((JSONObject) -> Unit)? = null
     var onIceCandidate: ((JSONObject) -> Unit)? = null
     var onUserDisconnected: (() -> Unit)? = null
+    var onIdChanged: ((String) -> Unit)? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private fun updateStatus(msg: String) {
@@ -86,6 +87,7 @@ class SocketClient {
         onAnswerInit: ((JSONObject) -> Unit)? = null,
         onIceCandidateInit: ((JSONObject) -> Unit)? = null
     ) {
+        var currentRoomId = roomId
         if (onOfferInit != null) this.onOffer = onOfferInit
         if (onAnswerInit != null) this.onAnswer = onAnswerInit
         if (onIceCandidateInit != null) this.onIceCandidate = onIceCandidateInit
@@ -100,9 +102,21 @@ class SocketClient {
             socket = IO.socket(url, opts)
 
             socket?.on(Socket.EVENT_CONNECT) {
-                updateStatus("✅ CONECTADO al servidor. Registrando como: $roomId")
+                updateStatus("✅ CONECTADO al servidor. Registrando como: $currentRoomId")
                 val specs = getSystemSpecs(context)
-                socket?.emit("register-device", roomId, specs)
+                socket?.emit("register-device", currentRoomId, specs)
+            }
+
+            // Otro equipo ya usa este número: generamos uno nuevo, lo guardamos y nos registramos de nuevo.
+            socket?.on("id-duplicado") {
+                val n = (100000..999999).random().toString()
+                val newId = "${n.substring(0, 3)}-${n.substring(3, 6)}"
+                updateStatus("⚠️ El número $currentRoomId ya está en uso por otro equipo. Nuevo número: $newId")
+                context.getSharedPreferences("RostiPrefs", Context.MODE_PRIVATE)
+                    .edit().putString("permanent_id", newId).apply()
+                currentRoomId = newId
+                mainHandler.post { onIdChanged?.invoke(newId) }
+                socket?.emit("register-device", newId, getSystemSpecs(context))
             }
 
             socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
